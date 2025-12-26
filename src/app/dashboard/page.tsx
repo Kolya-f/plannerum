@@ -1,303 +1,433 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useSession } from 'next-auth/react'
 import Link from 'next/link'
-import { 
-  CalendarDaysIcon,
-  UserGroupIcon,
-  ChartBarIcon,
-  PlusIcon,
-  ArrowRightIcon,
-  ClockIcon
-} from '@heroicons/react/24/outline'
+import { useSession, signOut } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
 
-type Event = {
+interface Event {
   id: string
   title: string
-  description: string
-  publicId: string
+  description: string | null
+  isPublic: boolean
   createdAt: string
   dateOptions: Array<{
-    id: string
-    votes: Array<any>
+    _count: {
+      votes: number
+    }
   }>
-  votes: Array<any>
+  _count: {
+    dateOptions: number
+  }
 }
 
 export default function DashboardPage() {
   const { data: session, status } = useSession()
+  const router = useRouter()
   const [events, setEvents] = useState<Event[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
 
   useEffect(() => {
-    if (session) {
+    if (status === 'unauthenticated') {
+      router.push('/auth/signin')
+    }
+    if (status === 'authenticated') {
       fetchEvents()
     }
-  }, [session])
+  }, [status, router])
 
   const fetchEvents = async () => {
     try {
-      setLoading(true)
       const response = await fetch('/api/events')
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch events')
+      if (response.ok) {
+        const data = await response.json()
+        setEvents(data)
       }
-
-      const data = await response.json()
-      setEvents(data.events || [])
-    } catch (err: any) {
-      setError(err.message || 'Failed to load events')
-      console.error('Error fetching events:', err)
+    } catch (error) {
+      console.error('Error fetching events:', error)
     } finally {
       setLoading(false)
     }
   }
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    })
-  }
-
-  // Calculate stats for an event
-  const getEventStats = (event: Event) => {
-    const totalVotes = event.votes.length
-    const uniqueVoters = new Set(event.votes.map(v => v.userId)).size
-    const dateOptionsCount = event.dateOptions.length
-    
-    return { totalVotes, uniqueVoters, dateOptionsCount }
-  }
-
-  if (status === 'loading') {
+  if (status === 'loading' || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
-        </div>
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#f8fafc'
+      }}>
+        <div>Loading dashboard...</div>
       </div>
     )
   }
 
-  if (!session) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="bg-white rounded-lg p-8 shadow-md max-w-md text-center">
-          <CalendarDaysIcon className="h-12 w-12 text-blue-500 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Sign In Required</h2>
-          <p className="text-gray-600 mb-6">
-            Please sign in to view your events
-          </p>
-          <div className="space-y-3">
-            <Link
-              href="/auth/signin"
-              className="block w-full py-2 px-4 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700"
-            >
-              Sign In
-            </Link>
-            <Link
-              href="/"
-              className="block w-full py-2 px-4 rounded-lg bg-gray-100 text-gray-800 font-medium hover:bg-gray-200"
-            >
-              Back to Home
-            </Link>
-          </div>
-        </div>
-      </div>
-    )
+  if (status === 'unauthenticated') {
+    return null
   }
+
+  const totalVotes = events.reduce((sum, event) => 
+    sum + event.dateOptions.reduce((optSum, opt) => optSum + opt._count.votes, 0), 0
+  )
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              My Events
-            </h1>
-            <p className="text-gray-600 mt-1">
-              Manage and track your created events
-            </p>
-          </div>
-          
-          <Link
-            href="/create-event"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700"
-          >
-            <PlusIcon className="h-4 w-4" />
-            Create New
+    <div style={{
+      minHeight: '100vh',
+      backgroundColor: '#f8fafc',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+    }}>
+      {/* Навігація */}
+      <nav style={{
+        backgroundColor: 'white',
+        boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
+        padding: '16px 32px'
+      }}>
+        <div style={{
+          maxWidth: '1200px',
+          margin: '0 auto',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <Link href="/" style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            textDecoration: 'none',
+            color: '#1e293b',
+            fontWeight: 'bold',
+            fontSize: '20px'
+          }}>
+            <div style={{
+              width: '32px',
+              height: '32px',
+              backgroundColor: '#3b82f6',
+              borderRadius: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'white',
+              fontWeight: 'bold'
+            }}>
+              P
+            </div>
+            Plannerum
           </Link>
+          
+          <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+            <Link href="/" style={{
+              padding: '8px 16px',
+              color: '#475569',
+              textDecoration: 'none'
+            }}>
+              Home
+            </Link>
+            <Link href="/events" style={{
+              padding: '8px 16px',
+              color: '#475569',
+              textDecoration: 'none'
+            }}>
+              All Events
+            </Link>
+            <button
+              onClick={() => signOut()}
+              style={{
+                padding: '8px 16px',
+                border: '1px solid #cbd5e1',
+                borderRadius: '8px',
+                backgroundColor: 'white',
+                color: '#475569',
+                cursor: 'pointer'
+              }}
+            >
+              Sign Out
+            </button>
+          </div>
         </div>
+      </nav>
 
-        {/* Welcome message */}
-        <div className="bg-blue-50 rounded-lg p-4 border border-blue-100">
-          <p className="text-blue-800">
-            Welcome back, <span className="font-medium">{session.user?.name || session.user?.email}</span>!
-            {events.length === 0 ? ' Create your first event to get started.' : ''}
+      {/* Основний контент */}
+      <div style={{
+        maxWidth: '1200px',
+        margin: '0 auto',
+        padding: '32px 16px'
+      }}>
+        {/* Заголовок і статистика */}
+        <div style={{ marginBottom: '48px' }}>
+          <h1 style={{
+            fontSize: '32px',
+            fontWeight: 'bold',
+            color: '#0f172a',
+            marginBottom: '8px'
+          }}>
+            Welcome back, {session?.user?.name || session?.user?.email?.split('@')[0]}!
+          </h1>
+          <p style={{ color: '#64748b', marginBottom: '32px' }}>
+            Manage your events and see voting results
           </p>
+          
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            gap: '24px'
+          }}>
+            <div style={{
+              backgroundColor: 'white',
+              borderRadius: '12px',
+              padding: '24px',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+            }}>
+              <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#3b82f6' }}>
+                {events.length}
+              </div>
+              <div style={{ color: '#64748b' }}>Total Events</div>
+            </div>
+            
+            <div style={{
+              backgroundColor: 'white',
+              borderRadius: '12px',
+              padding: '24px',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+            }}>
+              <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#10b981' }}>
+                {totalVotes}
+              </div>
+              <div style={{ color: '#64748b' }}>Total Votes</div>
+            </div>
+            
+            <div style={{
+              backgroundColor: 'white',
+              borderRadius: '12px',
+              padding: '24px',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+            }}>
+              <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#f59e0b' }}>
+                {events.filter(e => e.isPublic).length}
+              </div>
+              <div style={{ color: '#64748b' }}>Public Events</div>
+            </div>
+            
+            <div style={{
+              backgroundColor: 'white',
+              borderRadius: '12px',
+              padding: '24px',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+            }}>
+              <Link href="/create-event" style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                padding: '12px',
+                backgroundColor: '#3b82f6',
+                color: 'white',
+                borderRadius: '8px',
+                textDecoration: 'none',
+                fontWeight: '500'
+              }}>
+                <span>+</span>
+                <span>Create New Event</span>
+              </Link>
+            </div>
+          </div>
         </div>
-      </div>
 
-      {/* Loading/Error States */}
-      {loading && (
-        <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading your events...</p>
-        </div>
-      )}
+        {/* Список подій */}
+        <div>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '24px'
+          }}>
+            <h2 style={{
+              fontSize: '24px',
+              fontWeight: 'bold',
+              color: '#0f172a'
+            }}>
+              Your Events
+            </h2>
+            <Link href="/events" style={{
+              padding: '8px 16px',
+              color: '#3b82f6',
+              textDecoration: 'none',
+              fontWeight: '500'
+            }}>
+              View All Public Events →
+            </Link>
+          </div>
 
-      {error && !loading && (
-        <div className="bg-red-50 rounded-lg p-4 border border-red-200 mb-6">
-          <p className="text-red-700">{error}</p>
-          <button
-            onClick={fetchEvents}
-            className="mt-2 text-sm text-red-600 hover:text-red-800 font-medium"
-          >
-            Try Again
-          </button>
-        </div>
-      )}
-
-      {/* Events List */}
-      {!loading && !error && (
-        <>
           {events.length === 0 ? (
-            <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
-              <CalendarDaysIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No events yet</h3>
-              <p className="text-gray-600 mb-6 max-w-md mx-auto">
-                Create your first event to start planning with others
+            <div style={{
+              backgroundColor: 'white',
+              borderRadius: '12px',
+              padding: '48px',
+              textAlign: 'center',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+            }}>
+              <div style={{
+                width: '64px',
+                height: '64px',
+                backgroundColor: '#dbeafe',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '24px',
+                color: '#3b82f6',
+                margin: '0 auto 16px'
+              }}>
+                📅
+              </div>
+              <h3 style={{
+                fontSize: '20px',
+                fontWeight: '600',
+                color: '#0f172a',
+                marginBottom: '8px'
+              }}>
+                No events yet
+              </h3>
+              <p style={{ color: '#64748b', marginBottom: '24px' }}>
+                Create your first event to start planning!
               </p>
-              <Link
-                href="/create-event"
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700"
-              >
-                <PlusIcon className="h-4 w-4" />
+              <Link href="/create-event" style={{
+                display: 'inline-block',
+                padding: '12px 24px',
+                backgroundColor: '#3b82f6',
+                color: 'white',
+                borderRadius: '8px',
+                textDecoration: 'none',
+                fontWeight: '500'
+              }}>
                 Create Your First Event
               </Link>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+              gap: '24px'
+            }}>
               {events.map((event) => {
-                const stats = getEventStats(event)
+                const totalEventVotes = event.dateOptions.reduce((sum, opt) => sum + opt._count.votes, 0)
                 
                 return (
-                  <div 
-                    key={event.id} 
-                    className="bg-white rounded-lg border border-gray-200 hover:border-blue-300 transition-colors duration-200"
-                  >
-                    <div className="p-5">
-                      {/* Event Header */}
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-gray-900 mb-1 line-clamp-1">
-                            {event.title}
-                          </h3>
-                          <div className="flex items-center text-sm text-gray-500">
-                            <ClockIcon className="h-3 w-3 mr-1" />
-                            Created {formatDate(event.createdAt)}
-                          </div>
+                  <div key={event.id} style={{
+                    backgroundColor: 'white',
+                    borderRadius: '12px',
+                    padding: '24px',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                    transition: 'box-shadow 0.3s'
+                  }}>
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'flex-start',
+                      marginBottom: '16px'
+                    }}>
+                      <div>
+                        <h3 style={{
+                          fontSize: '18px',
+                          fontWeight: '600',
+                          color: '#0f172a',
+                          marginBottom: '4px'
+                        }}>
+                          {event.title}
+                        </h3>
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          marginTop: '8px'
+                        }}>
+                          <span style={{
+                            padding: '4px 8px',
+                            fontSize: '12px',
+                            fontWeight: '500',
+                            borderRadius: '999px',
+                            backgroundColor: event.isPublic ? '#d1fae5' : '#f1f5f9',
+                            color: event.isPublic ? '#065f46' : '#475569'
+                          }}>
+                            {event.isPublic ? '🌍 Public' : '🔒 Private'}
+                          </span>
+                          <span style={{
+                            fontSize: '14px',
+                            color: '#94a3b8'
+                          }}>
+                            {new Date(event.createdAt).toLocaleDateString()}
+                          </span>
                         </div>
                       </div>
-
-                      {/* Event Description */}
-                      {event.description && (
-                        <p className="text-gray-600 text-sm mb-4 line-clamp-2">
-                          {event.description}
-                        </p>
-                      )}
-
-                      {/* Stats */}
-                      <div className="grid grid-cols-3 gap-3 mb-4">
-                        <div className="text-center">
-                          <div className="text-lg font-bold text-blue-600">
-                            {stats.dateOptionsCount}
-                          </div>
-                          <div className="text-xs text-gray-500">Dates</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-lg font-bold text-green-600">
-                            {stats.totalVotes}
-                          </div>
-                          <div className="text-xs text-gray-500">Votes</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-lg font-bold text-purple-600">
-                            {stats.uniqueVoters}
-                          </div>
-                          <div className="text-xs text-gray-500">People</div>
-                        </div>
+                    </div>
+                    
+                    {event.description && (
+                      <p style={{
+                        color: '#64748b',
+                        marginBottom: '16px',
+                        fontSize: '14px',
+                        lineHeight: '1.5'
+                      }}>
+                        {event.description}
+                      </p>
+                    )}
+                    
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      marginBottom: '16px',
+                      fontSize: '14px',
+                      color: '#64748b'
+                    }}>
+                      <div>
+                        <span style={{ fontWeight: '500' }}>{event._count.dateOptions}</span> dates
                       </div>
-
-                      {/* Actions */}
-                      <div className="flex gap-2">
-                        <Link
-                          href={`/event/${event.publicId}`}
-                          className="flex-1 py-2 px-3 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 text-sm font-medium text-center"
-                        >
-                          View Event
-                        </Link>
-                        <Link
-                          href={`/event/${event.publicId}/results`}
-                          className="flex-1 py-2 px-3 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 text-sm font-medium text-center"
-                        >
-                          Results
-                        </Link>
+                      <div>
+                        <span style={{ fontWeight: '500' }}>{totalEventVotes}</span> votes
                       </div>
+                    </div>
+                    
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <Link
+                        href={`/event/${event.id}`}
+                        style={{
+                          flex: 1,
+                          padding: '8px',
+                          textAlign: 'center',
+                          backgroundColor: '#dbeafe',
+                          color: '#1d4ed8',
+                          borderRadius: '8px',
+                          textDecoration: 'none',
+                          fontWeight: '500'
+                        }}
+                      >
+                        View Event
+                      </Link>
+                      <Link
+                        href={`/event/${event.id}/results`}
+                        style={{
+                          flex: 1,
+                          padding: '8px',
+                          textAlign: 'center',
+                          backgroundColor: '#f0f9ff',
+                          color: '#0369a1',
+                          borderRadius: '8px',
+                          textDecoration: 'none',
+                          fontWeight: '500'
+                        }}
+                      >
+                        Results
+                      </Link>
                     </div>
                   </div>
                 )
               })}
             </div>
           )}
-
-          {/* Quick Stats */}
-          {events.length > 0 && (
-            <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-blue-50 rounded-lg p-4 border border-blue-100">
-                <div className="flex items-center gap-3">
-                  <CalendarDaysIcon className="h-5 w-5 text-blue-600" />
-                  <div>
-                    <div className="text-2xl font-bold text-blue-600">{events.length}</div>
-                    <div className="text-sm text-gray-600">Total Events</div>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="bg-green-50 rounded-lg p-4 border border-green-100">
-                <div className="flex items-center gap-3">
-                  <ChartBarIcon className="h-5 w-5 text-green-600" />
-                  <div>
-                    <div className="text-2xl font-bold text-green-600">
-                      {events.reduce((sum, event) => sum + event.votes.length, 0)}
-                    </div>
-                    <div className="text-sm text-gray-600">Total Votes</div>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="bg-purple-50 rounded-lg p-4 border border-purple-100">
-                <div className="flex items-center gap-3">
-                  <UserGroupIcon className="h-5 w-5 text-purple-600" />
-                  <div>
-                    <div className="text-2xl font-bold text-purple-600">
-                      {new Set(events.flatMap(event => event.votes.map(v => v.userId))).size}
-                    </div>
-                    <div className="text-sm text-gray-600">Unique Voters</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </>
-      )}
+        </div>
+      </div>
     </div>
   )
 }

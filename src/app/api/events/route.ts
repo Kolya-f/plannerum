@@ -7,93 +7,48 @@ import { authOptions } from '@/lib/auth'
 export async function GET() {
   try {
     console.log('🔵 GET /api/events - Starting...')
-    
     const session = await getServerSession(authOptions)
-    
-    if (!session?.user?.email) {
-      console.log('❌ GET /api/events - No session')
+
+    if (!session?.user?.id) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       )
     }
 
-    console.log('🔵 GET /api/events - User:', session.user.email)
-
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email }
-    })
-
-    if (!user) {
-      console.log('❌ GET /api/events - User not found')
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      )
-    }
-
-    console.log('🔵 GET /api/events - Fetching events for user:', user.id)
-    
+    // Отримуємо всі події користувача (і публічні, і приватні)
     const events = await prisma.event.findMany({
       where: {
-        creatorId: user.id
-      },
-      select: {
-        id: true,
-        title: true,
-        description: true,
-        isPublic: true,
-        createdAt: true,
-        updatedAt: true,
-        dateOptions: {
-          select: {
-            id: true,
-            date: true,
-            _count: {
-              select: { votes: true }
-            }
-          }
-        }
+        creatorId: session.user.id
       },
       orderBy: {
         createdAt: 'desc'
+      },
+      include: {
+        dateOptions: {
+          include: {
+            _count: {
+              select: {
+                votes: true
+              }
+            }
+          }
+        },
+        _count: {
+          select: {
+            dateOptions: true
+          }
+        }
       }
     })
 
-    const eventsWithVoteCount = await Promise.all(
-      events.map(async (event) => {
-        const totalVotes = await prisma.vote.count({
-          where: {
-            dateOption: {
-              eventId: event.id
-            }
-          }
-        })
-        
-        return {
-          ...event,
-          _count: {
-            dateOptions: event.dateOptions.length,
-            votes: totalVotes
-          }
-        }
-      })
-    )
+    console.log(`✅ GET /api/events - Found ${events.length} events`)
+    return NextResponse.json(events)
 
-    console.log('✅ GET /api/events - Found', eventsWithVoteCount.length, 'events')
-    
-    return NextResponse.json(eventsWithVoteCount)
-
-  } catch (error: any) {
-    console.error('🔴 GET /api/events - Error:', error.message)
-    console.error('Full error:', error)
-    
+  } catch (error) {
+    console.error('❌ GET /api/events - Error:', error)
     return NextResponse.json(
-      { 
-        error: 'Failed to fetch events',
-        details: error.message,
-        code: error.code
-      },
+      { error: 'Failed to fetch events' },
       { status: 500 }
     )
   }
@@ -103,77 +58,70 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     console.log('🟢 POST /api/events - Creating new event...')
-    
     const session = await getServerSession(authOptions)
-    
-    if (!session?.user?.email) {
-      console.log('❌ POST /api/events - No session')
+
+    if (!session?.user?.id) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       )
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email }
-    })
+    const body = await request.json()
+    console.log('📝 Event data:', body)
 
-    if (!user) {
-      console.log('❌ POST /api/events - User not found')
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      )
-    }
+    const { title, description, isPublic = true, dateOptions } = body
 
-    const { title, description, dates, isPublic } = await request.json()
-    
-    console.log('📝 Event data:', { title, description, datesCount: dates?.length })
-    
-    if (!title || !dates || !Array.isArray(dates) || dates.length < 2) {
+    // Валідація
+    if (!title) {
       return NextResponse.json(
-        { error: 'Title and at least 2 dates are required' },
+        { error: 'Title is required' },
         { status: 400 }
       )
     }
 
+    if (!dateOptions || !Array.isArray(dateOptions) || dateOptions.length === 0) {
+      return NextResponse.json(
+        { error: 'At least one date option is required' },
+        { status: 400 }
+      )
+    }
+
+    // Створення події
     const event = await prisma.event.create({
       data: {
         title,
-        description,
-        isPublic: isPublic !== false,
-        creatorId: user.id,
-        dateOptions: {
-          create: dates.map((date: string) => ({
-            date: new Date(date)
-          }))
-        }
-      },
-      include: {
-        dateOptions: true
+        description: description || null,
+        isPublic: isPublic ?? true,
+        creatorId: session.user.id
       }
     })
 
+    // Створення дат
+    const createdDateOptions = []
+    for (const dateOpt of dateOptions) {
+      const dateOption = await prisma.dateOption.create({
+        data: {
+          eventId: event.id,
+          date: new Date(dateOpt.date)
+        }
+      })
+      createdDateOptions.push(dateOption)
+    }
+
     console.log('✅ POST /api/events - Event created:', event.id)
-    
     return NextResponse.json({
-      success: true,
+      message: 'Event created successfully',
       event: {
         ...event,
-        publicId: event.id
+        dateOptions: createdDateOptions
       }
     }, { status: 201 })
 
-  } catch (error: any) {
-    console.error('🔴 POST /api/events - Error:', error.message)
-    console.error('Full error:', error)
-    
+  } catch (error) {
+    console.error('❌ POST /api/events - Error:', error)
     return NextResponse.json(
-      { 
-        error: 'Failed to create event',
-        details: error.message,
-        code: error.code
-      },
+      { error: 'Failed to create event' },
       { status: 500 }
     )
   }

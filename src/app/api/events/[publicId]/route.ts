@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
 import { prisma } from '@/lib/prisma'
+import { authOptions } from '@/lib/auth'
 
+// Для Next.js 15+
 interface RouteContext {
   params: Promise<{ publicId: string }>;
 }
@@ -11,6 +14,7 @@ export async function GET(
 ) {
   try {
     const { publicId } = await context.params;
+    const session = await getServerSession(authOptions);
     console.log('🔵 GET /api/events/[publicId] - Fetching event:', publicId)
 
     const event = await prisma.event.findUnique({
@@ -51,6 +55,27 @@ export async function GET(
         { error: 'Event not found' },
         { status: 404 }
       )
+    }
+
+    // Перевірка доступу
+    // 1. Публічні події доступні всім
+    // 2. Приватні події - тільки власнику
+    if (!event.isPublic) {
+      if (!session?.user?.id) {
+        console.log('❌ Unauthorized access to private event (no session)')
+        return NextResponse.json(
+          { error: 'Unauthorized - This is a private event' },
+          { status: 403 }
+        )
+      }
+      
+      if (event.creator.id !== session.user.id) {
+        console.log('❌ Unauthorized access to private event (wrong user)')
+        return NextResponse.json(
+          { error: 'Unauthorized - This is a private event' },
+          { status: 403 }
+        )
+      }
     }
 
     console.log('✅ Event found:', event.title)

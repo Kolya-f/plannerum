@@ -1,15 +1,13 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
-import { Providers } from './providers'
-import Navbar from '@/components/Navbar'
-import Footer from '@/components/Footer'
+import { Providers } from '@/components/Providers'
 
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Plannerum - Plan Events Together',
-  description: 'Create events, vote on dates, and find the perfect time for everyone',
+  title: 'Plannerum - Collaborative Event Planning',
+  description: 'Plan events together effortlessly.',
 }
 
 export default function RootLayout({
@@ -19,15 +17,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${inter.className} bg-white`}>
+      <body className={inter.className} style={{ margin: 0, padding: 0 }}>
         <Providers>
-          <div className="flex flex-col min-h-screen">
-            <Navbar />
-            <main className="flex-grow">
-              {children}
-            </main>
-            <Footer />
-          </div>
+          {children}
         </Providers>
       </body>
     </html>
