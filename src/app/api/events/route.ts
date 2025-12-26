@@ -34,7 +34,6 @@ export async function GET() {
 
     console.log('🔵 GET /api/events - Fetching events for user:', user.id)
     
-    // Отримуємо події без votes (бо їх немає в Event)
     const events = await prisma.event.findMany({
       where: {
         creatorId: user.id
@@ -61,7 +60,6 @@ export async function GET() {
       }
     })
 
-    // Додаємо загальну кількість голосів до кожної події
     const eventsWithVoteCount = await Promise.all(
       events.map(async (event) => {
         const totalVotes = await prisma.vote.count({
@@ -139,7 +137,6 @@ export async function POST(request: Request) {
       )
     }
 
-    // Створюємо подію
     const event = await prisma.event.create({
       data: {
         title,

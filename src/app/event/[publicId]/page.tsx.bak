@@ -75,8 +75,6 @@ export default function EventPage() {
   }
 
   const handleVote = async (dateOptionId: string, voteType: string) => {
-    console.log("🔵 Голосування:", { eventId: event?.id, publicId, dateOptionId, voteType });
-    console.log("📌 Session:", session);
     // Перевірка авторизації
     if (status === 'unauthenticated') {
       alert('Будь ласка, увійдіть в систему для голосування')

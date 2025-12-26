@@ -6,13 +6,12 @@ export async function GET(
   { params }: { params: Promise<{ publicId: string }> }
 ) {
   try {
-    // Важливо: params це Promise в Next.js 15+
     const { publicId } = await params
 
     console.log('🔵 GET /api/events/[publicId] - Fetching event:', publicId)
 
     const event = await prisma.event.findUnique({
-      where: { id: publicId },  // Використовуємо id, бо publicId не існує в схемі
+      where: { id: publicId },
       include: {
         creator: {
           select: {
