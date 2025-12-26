@@ -1,0 +1,83 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider     = "postgresql"
+  url          = env("DATABASE_URL")
+  relationMode = "prisma"
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  password      String?
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime  @default(now()) @map("createdAt")
+  updatedAt     DateTime  @updatedAt @map("updatedAt")
+
+  // Relations
+  events Event[] @relation("EventCreator")
+  votes  Vote[]
+
+  @@map("User")
+}
+
+model Event {
+  id          String  @id @default(cuid())
+  title       String
+  description String?
+
+  // Relations
+  creator   User   @relation("EventCreator", fields: [creatorId], references: [id])
+  creatorId String
+
+  isPublic Boolean @default(true)
+
+  // Relations
+  dateOptions DateOption[]
+  // Видаляємо votes звідси, бо вони доступні через dateOptions.votes
+  // votes       Vote[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("Event")
+}
+
+model DateOption {
+  id String @id @default(cuid())
+
+  // Relations
+  event   Event  @relation(fields: [eventId], references: [id])
+  eventId String
+
+  date  DateTime
+  votes Vote[]
+
+  createdAt DateTime @default(now())
+
+  @@map("DateOption")
+}
+
+model Vote {
+  id String @id @default(cuid())
+
+  // Relations
+  dateOption   DateOption @relation(fields: [dateOptionId], references: [id])
+  dateOptionId String
+
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+
+  type      String
+  createdAt DateTime @default(now())
+
+  @@unique([dateOptionId, userId])
+  @@map("Vote")
+}
