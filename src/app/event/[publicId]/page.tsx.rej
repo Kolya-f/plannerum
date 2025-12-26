@@ -1,0 +1,20 @@
+--- page.tsx
++++ page.tsx
+@@ -122,7 +122,7 @@ export default function EventPage() {
+ 
+   // Функція для отримання голосу поточного користувача за конкретну дату
+   const getUserVote = (dateOption: DateOption) => {
+-    if (!session?.user) return null
++    if (!session?.user?.id) return null
+     const userVote = dateOption.votes.find(vote => vote.user.id === session.user!.id)
+     return userVote ? userVote.type : null
+   }
+@@ -216,7 +216,7 @@ export default function EventPage() {
+         <div className="bg-blue-50 p-3 rounded-lg">
+           {status === 'authenticated' ? (
+             <p className="text-blue-700">
+-              👤 Ви ввійшли як <strong>{session.user.email}</strong>. Ви можете голосувати!
++              👤 Ви ввійшли як <strong>{session?.user?.email || 'користувач'}</strong>. Ви можете голосувати!
+             </p>
+           ) : status === 'loading' ? (
+             <p className="text-blue-700">Завантаження...</p>

@@ -1,13 +1,16 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+interface RouteContext {
+  params: Promise<{ publicId: string }>;
+}
+
 export async function GET(
   request: Request,
-  { params }: { params: Promise<{ publicId: string }> }
+  context: RouteContext
 ) {
   try {
-    const { publicId } = await params
-
+    const { publicId } = await context.params;
     console.log('🔵 GET /api/events/[publicId] - Fetching event:', publicId)
 
     const event = await prisma.event.findUnique({
@@ -21,13 +24,9 @@ export async function GET(
           }
         },
         dateOptions: {
-          select: {
-            id: true,
-            date: true,
+          include: {
             votes: {
-              select: {
-                id: true,
-                type: true,
+              include: {
                 user: {
                   select: {
                     id: true,
@@ -37,17 +36,17 @@ export async function GET(
               }
             },
             _count: {
-              select: { votes: true }
+              select: {
+                votes: true
+              }
             }
-          },
-          orderBy: {
-            date: 'asc'
           }
         }
       }
     })
 
     if (!event) {
+      console.log('❌ Event not found:', publicId)
       return NextResponse.json(
         { error: 'Event not found' },
         { status: 404 }
@@ -55,18 +54,12 @@ export async function GET(
     }
 
     console.log('✅ Event found:', event.title)
-    
     return NextResponse.json(event)
 
-  } catch (error: any) {
-    console.error('🔴 GET /api/events/[publicId] - Error:', error.message)
-    
+  } catch (error) {
+    console.error('❌ Error fetching event:', error)
     return NextResponse.json(
-      { 
-        error: 'Failed to fetch event',
-        details: error.message,
-        code: error.code
-      },
+      { error: 'Failed to fetch event' },
       { status: 500 }
     )
   }

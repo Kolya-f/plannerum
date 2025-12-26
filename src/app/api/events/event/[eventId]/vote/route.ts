@@ -3,73 +3,76 @@ import { getServerSession } from 'next-auth';
 import { prisma } from '@/lib/prisma';
 import { authOptions } from '@/lib/auth';
 
+// Тип для сесії NextAuth
+interface UserSession {
+  user?: {
+    id?: string;
+    email?: string;
+    name?: string;
+  };
+}
+
+// Для Next.js 15+ параметри - це Promise
+interface RouteContext {
+  params: Promise<{ eventId: string }>;
+}
+
 export async function POST(
   request: NextRequest,
-  { params }: Promise<{ params: { eventId: string } }>
+  context: RouteContext
 ) {
   try {
-    // Очікуємо params (фікс для Next.js 15+)
-    const { eventId } = await params;
-    const session = await getServerSession(authOptions);
+    // Очікуємо params з Promise
+    const { eventId } = await context.params;
+    const session = await getServerSession(authOptions) as UserSession;
     
     const { dateOptionId, voteType } = await request.json();
 
-    console.log('🔵 POST /api/events/event/[eventId]/vote - Голосування:', {
-      eventId,
-      dateOptionId,
-      voteType,
-      userId: session?.user?.id
-    });
-
-    // Валідація типу голосу
+    // Валідація
     if (!['yes', 'no', 'maybe'].includes(voteType)) {
       return NextResponse.json(
-        { error: 'Невірний тип голосу. Дозволені значення: yes, no, maybe' },
+        { error: 'Invalid vote type' },
         { status: 400 }
       );
     }
 
     // Перевірка авторизації
-    if (!session?.user?.id) {
+    const userId = session?.user?.id;
+    if (!userId) {
       return NextResponse.json(
-        { error: 'Необхідно авторизуватися' },
+        { error: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    // Перевірка, чи існує подія
+    // Перевірка події
     const event = await prisma.event.findUnique({
       where: { id: eventId },
       include: { dateOptions: true }
     });
 
     if (!event) {
-      console.error('❌ Подія не знайдена:', eventId);
       return NextResponse.json(
-        { error: 'Подія не знайдена' },
+        { error: 'Event not found' },
         { status: 404 }
       );
     }
 
-    console.log('✅ Подія знайдена:', event.title);
-
-    // Перевірка, чи дата належить події
+    // Перевірка дати
     const dateOptionExists = event.dateOptions.some(opt => opt.id === dateOptionId);
     if (!dateOptionExists) {
-      console.error('❌ Дата не знайдена у події:', { dateOptionId, eventId });
       return NextResponse.json(
-        { error: 'Дата не знайдена у цій події' },
+        { error: 'Date option not found' },
         { status: 404 }
       );
     }
 
-    // Створення або оновлення голосу
-    console.log('📝 Створення/оновлення голосу...');
+    // Голосування
     const vote = await prisma.vote.upsert({
       where: {
         dateOptionId_userId: {
           dateOptionId,
-          userId: session.user.id
+          userId: userId
         }
       },
       update: {
@@ -77,14 +80,12 @@ export async function POST(
       },
       create: {
         dateOptionId,
-        userId: session.user.id,
+        userId: userId,
         type: voteType
       }
     });
 
-    console.log('✅ Голос збережено:', vote.id);
-
-    // Отримати оновлені результати
+    // Оновлені результати
     const updatedEvent = await prisma.event.findUnique({
       where: { id: eventId },
       include: {
@@ -108,14 +109,14 @@ export async function POST(
 
     return NextResponse.json({
       success: true,
-      message: 'Голос успішно враховано',
+      message: 'Vote recorded',
       event: updatedEvent
     });
 
   } catch (error) {
-    console.error('❌ Помилка голосування:', error);
+    console.error('Vote error:', error);
     return NextResponse.json(
-      { error: 'Внутрішня помилка сервера', details: error instanceof Error ? error.message : 'Невідома помилка' },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }
@@ -123,13 +124,10 @@ export async function POST(
 
 export async function GET(
   request: NextRequest,
-  { params }: Promise<{ params: { eventId: string } }>
+  context: RouteContext
 ) {
   try {
-    // Очікуємо params (фікс для Next.js 15+)
-    const { eventId } = await params;
-
-    console.log('🔵 GET /api/events/event/[eventId]/vote - Отримання результатів:', eventId);
+    const { eventId } = await context.params;
 
     const event = await prisma.event.findUnique({
       where: { id: eventId },
@@ -153,20 +151,18 @@ export async function GET(
     });
 
     if (!event) {
-      console.error('❌ Подія не знайдена для GET:', eventId);
       return NextResponse.json(
-        { error: 'Подія не знайдена' },
+        { error: 'Event not found' },
         { status: 404 }
       );
     }
 
-    console.log('✅ Результати завантажені для події:', event.title);
     return NextResponse.json(event);
     
   } catch (error) {
-    console.error('❌ Помилка отримання результатів:', error);
+    console.error('Get votes error:', error);
     return NextResponse.json(
-      { error: 'Внутрішня помилка сервера' },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }

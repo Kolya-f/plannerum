@@ -1,3 +1,4 @@
+import { Session } from 'next-auth';
 'use client'
 
 import { useEffect, useState } from 'react'
@@ -5,58 +6,40 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 
-// Типи
-interface VoteUser {
-  id: string;
-  name: string | null;
-}
-
-interface Vote {
-  id: string;
-  type: string;
-  user: VoteUser;
-}
-
 interface DateOption {
-  id: string;
-  date: string;
-  votes: Vote[];
+  id: string
+  date: string
+  votes: Array<{
+    id: string
+    type: string
+    user: {
+      id: string
+      name: string | null
+    }
+  }>
   _count: {
-    votes: number;
-  };
-}
-
-interface EventCreator {
-  id: string;
-  name: string | null;
-  email: string;
+    votes: number
+  }
 }
 
 interface Event {
-  id: string;
-  title: string;
-  description: string | null;
-  isPublic: boolean;
-  createdAt: string;
-  creator: EventCreator;
-  dateOptions: DateOption[];
-}
-
-// Extended session type
-interface ExtendedSession {
-  user?: {
-    id?: string;
-    email?: string | null;
-    name?: string | null;
-    image?: string | null;
-  };
+  id: string
+  title: string
+  description: string | null
+  isPublic: boolean
+  createdAt: string
+  creator: {
+    id: string
+    name: string | null
+    email: string
+  }
+  dateOptions: DateOption[]
 }
 
 export default function EventPage() {
   const params = useParams()
   const router = useRouter()
-  const { data: session, status } = useSession()
-  const extendedSession = session as ExtendedSession | null
+  const { data: session, status } = useSession() as { data: Session | null; status: string }
   const publicId = params.publicId as string
   
   const [event, setEvent] = useState<Event | null>(null)
@@ -93,6 +76,8 @@ export default function EventPage() {
   }
 
   const handleVote = async (dateOptionId: string, voteType: string) => {
+    console.log("🔵 Голосування:", { eventId: event?.id, publicId, dateOptionId, voteType });
+    console.log("📌 Session:", session);
     // Перевірка авторизації
     if (status === 'unauthenticated') {
       alert('Будь ласка, увійдіть в систему для голосування')
@@ -107,7 +92,7 @@ export default function EventPage() {
 
     setVoting(dateOptionId)
     try {
-      const response = await fetch(`/api/events/event/${publicId}/vote`, {
+      const response = await fetch(`/api/events/event/${event?.id}/vote`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -136,12 +121,19 @@ export default function EventPage() {
   }
 
   // Функція для отримання голосу поточного користувача за конкретну дату
+  // Функція для отримання голосу поточного користувача за конкретну дату
   const getUserVote = (dateOption: DateOption) => {
-    const userId = extendedSession?.user?.id;
+    // Безпечна перевірка через optional chaining
+    const userId = session?.user?.id;
     if (!userId) return null;
     
+    // Типізований доступ з перевіркою
     const userVote = dateOption.votes.find(vote => {
-      return vote.user?.id === userId;
+      // Перевірка що vote.user існує
+      if (!vote.user) return false;
+      // Перевірка що vote.user.id існує
+      if (!vote.user.id) return false;
+      return vote.user.id === userId;
     });
     
     return userVote ? userVote.type : null;
@@ -151,9 +143,7 @@ export default function EventPage() {
   const countVotesByType = (dateOption: DateOption) => {
     const counts = { yes: 0, maybe: 0, no: 0 }
     dateOption.votes.forEach(vote => {
-      if (vote.type === 'yes') counts.yes++
-      else if (vote.type === 'maybe') counts.maybe++
-      else if (vote.type === 'no') counts.no++
+      counts[vote.type as keyof typeof counts]++
     })
     return counts
   }
@@ -222,7 +212,7 @@ export default function EventPage() {
           <div className="mt-4 p-3 bg-blue-50 rounded-lg">
             {status === 'authenticated' ? (
               <p className="text-blue-700">
-                👤 Ви ввійшли як <strong>{extendedSession?.user?.email || 'користувач'}</strong>. Ви можете голосувати!
+                👤 Ви ввійшли як <strong>{session?.user?.email}</strong>. Ви можете голосувати!
               </p>
             ) : status === 'loading' ? (
               <p className="text-blue-700">Завантаження...</p>
@@ -394,7 +384,7 @@ export default function EventPage() {
                                   : 'bg-gray-100 text-gray-800 border border-gray-200'
                               }`}
                             >
-                              <span>{vote.user?.name || 'Гість'}</span>
+                              <span>{vote.user.name || 'Гість'}</span>
                               <span className={`px-1.5 py-0.5 rounded text-xs ${
                                 vote.type === 'yes' ? 'bg-green-200' :
                                 vote.type === 'maybe' ? 'bg-yellow-200' : 'bg-gray-200'
