@@ -1,16 +1,21 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    serverComponentsExternalPackages: ['@prisma/client', 'bcryptjs']
-  },
-  eslint: {
-    ignoreDuringBuilds: true,
+  serverExternalPackages: ['@prisma/client', 'bcryptjs'],
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'http',
+        hostname: 'localhost',
+        port: '3000',
+        pathname: '/**',
+      },
+    ],
   },
   typescript: {
     ignoreBuildErrors: true,
   },
-  images: {
-    domains: ['localhost'],
+  eslint: {
+    ignoreDuringBuilds: true,
   },
 }
 

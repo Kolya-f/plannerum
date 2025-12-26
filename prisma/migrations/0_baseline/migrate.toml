@@ -1,0 +1,6 @@
+# This is a baseline migration
+# The database already has these tables
+# This migration only documents the current state
+prismaVersion = "5.22.0"
+datasource = "db"
+generator = "client"

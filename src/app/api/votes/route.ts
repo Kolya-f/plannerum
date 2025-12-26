@@ -1,11 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { prisma } from '@/lib/prisma'
+import { authOptions } from '@/lib/auth'
 
-// POST: Проголосувати
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
-    const session = await getServerSession()
+    const session = await getServerSession(authOptions)
     
     if (!session?.user?.email) {
       return NextResponse.json(
@@ -25,148 +25,50 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const body = await request.json()
-    const { eventId, dateOptionId, status } = body
-
-    if (!eventId || !dateOptionId || !status) {
+    const { dateOptionId, voteType } = await request.json()
+    
+    if (!dateOptionId || !voteType) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
       )
     }
 
-    if (!['YES', 'NO', 'MAYBE'].includes(status)) {
-      return NextResponse.json(
-        { error: 'Invalid vote status' },
-        { status: 400 }
-      )
-    }
-
-    // Перевіряємо чи існує подія та дата
-    const event = await prisma.event.findUnique({
-      where: { id: eventId }
-    })
-
-    if (!event) {
-      return NextResponse.json(
-        { error: 'Event not found' },
-        { status: 404 }
-      )
-    }
-
-    const dateOption = await prisma.dateOption.findUnique({
-      where: { id: dateOptionId }
-    })
-
-    if (!dateOption) {
-      return NextResponse.json(
-        { error: 'Date option not found' },
-        { status: 404 }
-      )
-    }
-
-    // Перевіряємо чи користувач вже голосував за цю дату
-    const existingVote = await prisma.vote.findUnique({
+    // Перевіримо чи існує голос (правильний спосіб для composite unique)
+    const existingVote = await prisma.vote.findFirst({
       where: {
-        userId_dateOptionId: {
-          userId: user.id,
-          dateOptionId
-        }
+        userId: user.id,
+        dateOptionId: dateOptionId
       }
     })
 
     let vote
     if (existingVote) {
-      // Оновлюємо існуючий голос
+      // Оновимо існуючий голос
       vote = await prisma.vote.update({
         where: { id: existingVote.id },
-        data: { status }
+        data: { type: voteType }
       })
     } else {
-      // Створюємо новий голос
+      // Створимо новий голос
       vote = await prisma.vote.create({
         data: {
-          userId: user.id,
           dateOptionId,
-          eventId,
-          status
+          userId: user.id,
+          type: voteType
         }
       })
     }
 
-    return NextResponse.json({ 
-      message: 'Vote recorded successfully',
-      vote
-    }, { status: existingVote ? 200 : 201 })
-
-  } catch (error) {
-    console.error('Error recording vote:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
-  }
-}
-
-// GET: Отримати результати голосування
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url)
-    const eventId = searchParams.get('eventId')
-
-    if (!eventId) {
-      return NextResponse.json(
-        { error: 'Event ID is required' },
-        { status: 400 }
-      )
-    }
-
-    const votes = await prisma.vote.findMany({
-      where: { eventId },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true
-          }
-        },
-        dateOption: true
-      }
+    return NextResponse.json({
+      success: true,
+      vote: vote
     })
 
-    // Групуємо голоси по датам
-    const results = votes.reduce((acc, vote) => {
-      const dateOptionId = vote.dateOptionId
-      if (!acc[dateOptionId]) {
-        acc[dateOptionId] = {
-          dateOption: vote.dateOption,
-          votes: {
-            YES: 0,
-            NO: 0,
-            MAYBE: 0
-          },
-          users: []
-        }
-      }
-      
-      acc[dateOptionId].votes[vote.status]++
-      acc[dateOptionId].users.push({
-        id: vote.user.id,
-        name: vote.user.name,
-        email: vote.user.email,
-        status: vote.status
-      })
-      
-      return acc
-    }, {} as any)
-
-    return NextResponse.json({ results: Object.values(results) })
-
-  } catch (error) {
-    console.error('Error fetching votes:', error)
+  } catch (error: any) {
+    console.error('Vote error:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Failed to vote', details: error.message },
       { status: 500 }
     )
   }
