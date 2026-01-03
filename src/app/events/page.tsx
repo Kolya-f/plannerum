@@ -8,10 +8,18 @@ interface Event {
   id: string
   title: string
   description: string | null
+  location: string | null
+  category: string | null
+  maxParticipants: number | null
   user: {
     name: string | null
     email: string | null
   }
+  dateOptions: {
+    id: string
+    date: string
+  }[]
+  createdAt: string
 }
 
 export default function EventsPage() {
@@ -34,18 +42,27 @@ export default function EventsPage() {
         setError('Failed to load events')
       }
     } catch (error) {
+      console.error('Error fetching events:', error)
       setError('Failed to load events')
-      console.error(error)
     } finally {
       setLoading(false)
     }
   }
 
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    return date.toLocaleDateString('uk-UA', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    })
+  }
+
   if (loading) {
     return (
       <div className="container mx-auto p-4">
-        <h1 className="text-3xl font-bold mb-6">Events</h1>
-        <p>Loading events...</p>
+        <h1 className="text-3xl font-bold mb-6">Події</h1>
+        <p>Завантаження подій...</p>
       </div>
     )
   }
@@ -53,13 +70,13 @@ export default function EventsPage() {
   return (
     <div className="container mx-auto p-4">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Events</h1>
+        <h1 className="text-3xl font-bold">Події</h1>
         {session && (
           <Link
             href="/create-event"
-            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
           >
-            Create Event
+            Створити подію
           </Link>
         )}
       </div>
@@ -72,23 +89,69 @@ export default function EventsPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {events.length === 0 ? (
-          <p>No events found. Be the first to create one!</p>
+          <div className="col-span-full text-center py-12">
+            <p className="text-lg text-gray-600">Ще немає подій. Створіть першу!</p>
+            {session && (
+              <Link
+                href="/create-event"
+                className="inline-block mt-4 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg"
+              >
+                Створити першу подію
+              </Link>
+            )}
+          </div>
         ) : (
           events.map((event) => (
-            <div key={event.id} className="border rounded-lg p-4 shadow">
-              <h2 className="text-xl font-semibold mb-2">{event.title}</h2>
-              <p className="text-gray-600 mb-4">
-                {event.description || 'No description'}
-              </p>
-              <div className="text-sm text-gray-500">
-                Created by: {event.user?.name || event.user?.email || 'Unknown'}
+            <div key={event.id} className="border rounded-lg p-6 shadow hover:shadow-md transition-shadow">
+              <div className="flex justify-between items-start mb-3">
+                <h2 className="text-xl font-semibold">{event.title}</h2>
+                {event.category && (
+                  <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
+                    {event.category}
+                  </span>
+                )}
               </div>
-              <Link
-                href={`/events/${event.id}`}
-                className="mt-4 inline-block text-blue-500 hover:text-blue-600"
-              >
-                View Details →
-              </Link>
+              
+              <p className="text-gray-600 mb-4">
+                {event.description || 'Без опису'}
+              </p>
+              
+              {event.location && (
+                <p className="text-sm text-gray-500 mb-2">
+                  📍 {event.location}
+                </p>
+              )}
+              
+              {event.dateOptions.length > 0 && (
+                <div className="mb-4">
+                  <p className="text-sm font-medium text-gray-700 mb-1">Дати для голосування:</p>
+                  <div className="flex flex-wrap gap-1">
+                    {event.dateOptions.map((option) => (
+                      <span key={option.id} className="bg-gray-100 text-gray-800 text-xs px-2 py-1 rounded">
+                        {formatDate(option.date)}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {event.maxParticipants && (
+                <p className="text-sm text-gray-500 mb-3">
+                  👥 Макс. учасників: {event.maxParticipants}
+                </p>
+              )}
+              
+              <div className="flex justify-between items-center mt-4 pt-4 border-t">
+                <div className="text-sm text-gray-500">
+                  Створив: {event.user?.name || event.user?.email || 'Невідомо'}
+                </div>
+                <Link
+                  href={`/events/${event.id}`}
+                  className="text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  Детальніше →
+                </Link>
+              </div>
             </div>
           ))
         )}

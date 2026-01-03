@@ -1,11 +1,8 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
+import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'
-
-// In-memory storage
-const events: any[] = []
-const users: any[] = []
 
 export async function POST(request: Request) {
   try {
@@ -19,7 +16,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { title, description, date, location } = body
+    const { title, description, date, location, category, maxParticipants } = body
 
     if (!title) {
       return NextResponse.json(
@@ -29,28 +26,30 @@ export async function POST(request: Request) {
     }
 
     // Знаходимо або створюємо користувача
-    let user = users.find(u => u.email === session.user.email)
-    if (!user) {
-      user = {
-        id: Date.now().toString(),
+    const user = await prisma.user.upsert({
+      where: { email: session.user.email },
+      update: {},
+      create: {
         email: session.user.email,
         name: session.user.name || session.user.email.split('@')[0],
-      }
-      users.push(user)
-    }
+      },
+    })
 
     // Створюємо подію
-    const event = {
-      id: Date.now().toString(),
-      title,
-      description,
-      date: date || new Date(Date.now() + 86400000).toISOString(),
-      location,
-      userId: user.id,
-      createdAt: new Date().toISOString(),
-    }
-    
-    events.push(event)
+    const event = await prisma.event.create({
+      data: {
+        title,
+        description,
+        date: date ? new Date(date) : null,
+        location,
+        category: category || 'other',
+        maxParticipants: maxParticipants ? parseInt(maxParticipants) : null,
+        userId: user.id,
+      },
+      include: {
+        user: true
+      }
+    })
 
     return NextResponse.json(event, { status: 201 })
   } catch (error) {
