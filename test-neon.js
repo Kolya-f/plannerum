@@ -1,38 +1,47 @@
 const { PrismaClient } = require('@prisma/client')
-const prisma = new PrismaClient()
 
-async function testNeon() {
-  console.log('🔵 Testing Neon PostgreSQL connection...')
+async function test() {
+  const prisma = new PrismaClient()
   
   try {
-    const result = await prisma.$queryRaw`SELECT 1 as neon_test`
-    console.log('✅ Neon connection successful!', result)
+    await prisma.$connect()
+    console.log('✅ Connected to Neon successfully!')
     
-    // Створимо тестову таблицю
-    await prisma.$executeRaw`
-      CREATE TABLE IF NOT EXISTS neon_test (
-        id SERIAL PRIMARY KEY,
-        message TEXT,
-        created_at TIMESTAMP DEFAULT NOW()
-      )
-    `
+    const userCount = await prisma.user.count()
+    const eventCount = await prisma.event.count()
     
-    // Додамо тестові дані
-    await prisma.$executeRaw`
-      INSERT INTO neon_test (message) 
-      VALUES ('🚀 Plannerum connected to Neon!')
-    `
+    console.log(`Users: ${userCount}`)
+    console.log(`Events: ${eventCount}`)
     
-    // Прочитаємо
-    const data = await prisma.$queryRaw`SELECT * FROM neon_test`
-    console.log('📊 Test data:', data)
+    if (eventCount === 0) {
+      console.log('No events yet. Creating a test event...')
+      
+      // Створимо тестового користувача
+      const user = await prisma.user.upsert({
+        where: { email: 'test@example.com' },
+        update: {},
+        create: {
+          email: 'test@example.com',
+          name: 'Test User',
+        },
+      })
+      
+      // Створимо тестову подію
+      const event = await prisma.event.create({
+        data: {
+          title: 'Test Event from CLI',
+          description: 'This is a test event created via CLI',
+          userId: user.id,
+        },
+      })
+      
+      console.log(`✅ Test event created: ${event.id}`)
+    }
     
-  } catch (error) {
-    console.error('❌ Neon connection failed:', error.message)
-    console.error('Full error:', error)
-  } finally {
     await prisma.$disconnect()
+  } catch (error) {
+    console.error('❌ Error connecting to Neon:', error.message)
   }
 }
 
-testNeon()
+test()

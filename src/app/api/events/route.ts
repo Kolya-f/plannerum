@@ -5,11 +5,23 @@ export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
-    // Simple fallback response
-    return NextResponse.json({ message: 'Events API is working' })
-  } catch (error) {
+    // Test database connection
+    await prisma.$connect()
+    const count = await prisma.event.count()
+    await prisma.$disconnect()
+    
+    return NextResponse.json({ 
+      message: 'Events API is working',
+      eventCount: count,
+      status: 'connected'
+    })
+  } catch (error: any) {
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { 
+        error: 'Database connection failed',
+        details: error.message,
+        status: 'error'
+      },
       { status: 500 }
     )
   }

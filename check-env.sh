@@ -1,0 +1,12 @@
+#!/bin/bash
+echo "=== Environment Variables Check ==="
+echo "1. On Vercel:"
+echo "   - DATABASE_URL should be Neon PostgreSQL"
+echo "   - Format: postgresql://neondb_owner:****@ep-***.us-east-1.aws.neon.tech/neondb"
+echo ""
+echo "2. Check database tables locally:"
+echo "   psql 'postgresql://neondb_owner:npg_X0BwMnU9TkKP@ep-nameless-surf-ahu56hgm-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require'"
+echo ""
+echo "3. Test endpoints after deploy:"
+echo "   https://plannerum-mvp.vercel.app/api/test-db"
+echo "   https://plannerum-mvp.vercel.app/api/events"

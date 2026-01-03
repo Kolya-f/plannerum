@@ -1,8 +1,10 @@
 {
-  "version": 2,
-  "buildCommand": "npm run build",
+  "buildCommand": "npm run vercel-build",
+  "devCommand": "npm run dev",
   "installCommand": "npm install",
+  "framework": "nextjs",
   "outputDirectory": ".next",
+  "regions": ["fra1"],
   "env": {
     "PRISMA_GENERATE_DATAPROXY": "false"
   }

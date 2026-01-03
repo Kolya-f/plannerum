@@ -5,13 +5,10 @@ export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
-    console.log('Fetching events from database...')
-    
-    // Тестуємо підключення до бази
-    await prisma.$connect()
+    console.log('Fetching events from Neon database...')
     
     const events = await prisma.event.findMany({
-      take: 10,
+      take: 20,
       orderBy: {
         createdAt: 'desc'
       },
@@ -25,36 +22,18 @@ export async function GET() {
       }
     })
 
-    console.log(`Found ${events.length} events`)
-    
-    await prisma.$disconnect()
+    console.log(`Found ${events.length} events in Neon`)
     
     return NextResponse.json(events)
-  } catch (error) {
-    console.error('Database error:', error)
+  } catch (error: any) {
+    console.error('Neon database error:', error)
     
-    // Fallback data if database fails
-    const fallbackEvents = [
-      {
-        id: '1',
-        title: 'Community Meeting',
-        description: 'Monthly community gathering',
-        user: { name: 'Test User', email: 'test@example.com' },
-        createdAt: new Date().toISOString(),
-        date: new Date().toISOString(),
-        location: 'Online'
+    return NextResponse.json(
+      { 
+        error: 'Failed to fetch events from database',
+        details: error.message 
       },
-      {
-        id: '2',
-        title: 'Birthday Party',
-        description: "Celebrating John's birthday",
-        user: { name: 'John Doe', email: 'john@example.com' },
-        createdAt: new Date().toISOString(),
-        date: new Date(Date.now() + 86400000).toISOString(),
-        location: 'City Park'
-      }
-    ]
-    
-    return NextResponse.json(fallbackEvents)
+      { status: 500 }
+    )
   }
 }
