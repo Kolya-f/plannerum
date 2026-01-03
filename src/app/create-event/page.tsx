@@ -3,33 +3,42 @@
 import { useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
+import { useForm } from 'react-hook-form'
+
+interface EventFormData {
+  title: string
+  description: string
+  location: string
+  category: string
+  maxParticipants: string
+}
 
 export default function CreateEventPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const { register, handleSubmit, formState: { errors } } = useForm<EventFormData>()
   
-  const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
-  const [dateOptions, setDateOptions] = useState<string[]>([
-    new Date(Date.now() + 86400000).toISOString().slice(0, 16), // Завтра
-    new Date(Date.now() + 172800000).toISOString().slice(0, 16), // Післязавтра
-  ])
-  
+  const [dateOptions, setDateOptions] = useState<string[]>([''])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
+
+  if (status === 'loading') {
+    return <div>Завантаження...</div>
+  }
+
+  if (!session) {
+    router.push('/auth/signin')
+    return null
+  }
 
   const addDateOption = () => {
-    setDateOptions([...dateOptions, new Date().toISOString().slice(0, 16)])
+    setDateOptions([...dateOptions, ''])
   }
 
   const removeDateOption = (index: number) => {
-    if (dateOptions.length > 1) {
-      const newDates = [...dateOptions]
-      newDates.splice(index, 1)
-      setDateOptions(newDates)
-    }
+    const newDates = [...dateOptions]
+    newDates.splice(index, 1)
+    setDateOptions(newDates)
   }
 
   const updateDateOption = (index: number, value: string) => {
@@ -38,158 +47,182 @@ export default function CreateEventPage() {
     setDateOptions(newDates)
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    setSuccess('')
-    setLoading(true)
-
-    if (!session) {
-      setError('Будь ласка, увійдіть в систему')
-      setLoading(false)
-      return
-    }
-
+  const onSubmit = async (data: EventFormData) => {
     try {
+      setLoading(true)
+      setError('')
+
+      // Фільтруємо пусті дати
+      const validDates = dateOptions.filter(date => date.trim() !== '')
+
       const response = await fetch('/api/events/create', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title,
-          description,
-          dateOptions,
-        }),
+          ...data,
+          maxParticipants: data.maxParticipants || null,
+          dateOptions: validDates
+        })
       })
 
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || data.details || 'Помилка при створенні події')
+      if (response.ok) {
+        const event = await response.json()
+        router.push(`/events/${event.id}`)
+      } else {
+        const errorData = await response.json()
+        setError(errorData.error || 'Помилка створення події')
       }
-
-      setSuccess('Подію успішно створено!')
-      setTimeout(() => {
-        router.push('/events')
-      }, 1500)
-
-    } catch (error: any) {
-      console.error('Error creating event:', error)
-      setError(error.message || 'Щось пішло не так')
+    } catch (error) {
+      setError('Помилка мережі')
+      console.error('Error:', error)
     } finally {
       setLoading(false)
     }
   }
 
-  if (status === 'loading') {
-    return <div className="container mx-auto px-4 py-8">Завантаження...</div>
-  }
-
-  if (!session) {
-    return (
-      <div className="container mx-auto px-4 py-8 text-center">
-        <h1 className="text-2xl font-bold mb-4">Увійдіть в систему</h1>
-        <p className="mb-4">Для створення події потрібно увійти в систему</p>
-        <Link
-          href="/auth/signin"
-          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-        >
-          Увійти
-        </Link>
-      </div>
-    )
-  }
-
   return (
-    <div className="container mx-auto px-4 py-8 max-w-2xl">
-      <h1 className="text-3xl font-bold mb-6">Створити нову подію</h1>
-      
-      {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-          {error}
-        </div>
-      )}
-      
-      {success && (
-        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
-          {success}
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Назва події *
-          </label>
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            required
-            placeholder="Назва вашої події"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Опис (необов'язково)
-          </label>
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            rows={3}
-            placeholder="Опишіть вашу подію..."
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Дати для голосування *
-          </label>
-          <div className="space-y-3">
-            {dateOptions.map((date, index) => (
-              <div key={index} className="flex items-center space-x-2">
-                <input
-                  type="datetime-local"
-                  value={date}
-                  onChange={(e) => updateDateOption(index, e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                />
-                {dateOptions.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => removeDateOption(index)}
-                    className="px-3 py-2 bg-red-100 text-red-600 rounded-md hover:bg-red-200"
-                  >
-                    Видалити
-                  </button>
-                )}
-              </div>
-            ))}
-            <button
-              type="button"
-              onClick={addDateOption}
-              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
-            >
-              + Додати ще одну дату
-            </button>
+    <div className="container mx-auto px-4 py-8">
+      <div className="max-w-2xl mx-auto">
+        <h1 className="text-3xl font-bold mb-6">Створити подію</h1>
+        
+        {error && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            {error}
           </div>
-        </div>
+        )}
 
-        <div className="pt-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          {/* Назва */}
+          <div>
+            <label className="block text-sm font-medium mb-2">
+              Назва події *
+            </label>
+            <input
+              {...register('title', { required: 'Назва обов\'язкова' })}
+              className="w-full p-3 border rounded-lg"
+              placeholder="Наприклад: Зустріч команди"
+            />
+            {errors.title && (
+              <p className="text-red-600 text-sm mt-1">{errors.title.message}</p>
+            )}
+          </div>
+
+          {/* Опис */}
+          <div>
+            <label className="block text-sm font-medium mb-2">
+              Опис
+            </label>
+            <textarea
+              {...register('description')}
+              className="w-full p-3 border rounded-lg"
+              placeholder="Опишіть подію..."
+              rows={4}
+            />
+          </div>
+
+          {/* Місце */}
+          <div>
+            <label className="block text-sm font-medium mb-2">
+              Місце проведення
+            </label>
+            <input
+              {...register('location')}
+              className="w-full p-3 border rounded-lg"
+              placeholder="Наприклад: Офіс або онлайн"
+            />
+          </div>
+
+          {/* Категорія */}
+          <div>
+            <label className="block text-sm font-medium mb-2">
+              Категорія
+            </label>
+            <select
+              {...register('category')}
+              className="w-full p-3 border rounded-lg"
+              defaultValue="other"
+            >
+              <option value="meeting">Зустріч</option>
+              <option value="workshop">Воркшоп</option>
+              <option value="party">Вечірка</option>
+              <option value="sport">Спорт</option>
+              <option value="other">Інше</option>
+            </select>
+          </div>
+
+          {/* Максимум учасників */}
+          <div>
+            <label className="block text-sm font-medium mb-2">
+              Максимальна кількість учасників
+            </label>
+            <input
+              {...register('maxParticipants')}
+              type="number"
+              className="w-full p-3 border rounded-lg"
+              placeholder="Наприклад: 20 (залишіть пустим для без обмежень)"
+            />
+          </div>
+
+          {/* Варіанти дат для голосування */}
+          <div>
+            <div className="flex justify-between items-center mb-2">
+              <label className="block text-sm font-medium">
+                Дати для голосування
+              </label>
+              <button
+                type="button"
+                onClick={addDateOption}
+                className="text-sm text-blue-600 hover:text-blue-800"
+              >
+                + Додати дату
+              </button>
+            </div>
+            
+            <div className="space-y-3">
+              {dateOptions.map((date, index) => (
+                <div key={index} className="flex gap-2">
+                  <input
+                    type="datetime-local"
+                    value={date}
+                    onChange={(e) => updateDateOption(index, e.target.value)}
+                    className="flex-1 p-3 border rounded-lg"
+                  />
+                  {dateOptions.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeDateOption(index)}
+                      className="px-4 py-3 bg-red-100 text-red-600 rounded-lg hover:bg-red-200"
+                    >
+                      Видалити
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+            
+            <p className="text-sm text-gray-600 mt-2">
+              Додайте дати, за які учасники зможуть голосувати
+            </p>
+          </div>
+
+          {/* Кнопка створення */}
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-500 text-white py-3 px-4 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg disabled:opacity-50"
           >
             {loading ? 'Створення...' : 'Створити подію'}
           </button>
+        </form>
+
+        <div className="mt-8 p-4 bg-blue-50 rounded-lg">
+          <h3 className="font-semibold mb-2">💡 Порада:</h3>
+          <p className="text-sm text-gray-700">
+            Додайте кілька варіантів дат, щоб учасники могли проголосувати за найкращий час.
+            Після створення події ви зможете побачити результати голосування на сторінці події.
+          </p>
         </div>
-      </form>
+      </div>
     </div>
   )
 }

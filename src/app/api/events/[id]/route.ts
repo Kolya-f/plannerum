@@ -1,31 +1,7 @@
 import { NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
 
-// Mock events data
-const events = [
-  {
-    id: '1',
-    title: 'Welcome to Plannerum!',
-    description: 'This is a sample event to get started',
-    userId: '1',
-    date: new Date(Date.now() + 86400000).toISOString(),
-    location: 'Online',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: '2',
-    title: 'Community Meeting',
-    description: 'Join our monthly community gathering',
-    userId: '2',
-    date: new Date(Date.now() + 172800000).toISOString(),
-    location: 'City Hall',
-    createdAt: new Date().toISOString(),
-  }
-]
-
-const users = [
-  { id: '1', email: 'test@example.com', name: 'Test User' },
-  { id: '2', email: 'admin@example.com', name: 'Admin User' }
-]
+export const dynamic = 'force-dynamic'
 
 export async function GET(
   request: Request,
@@ -34,7 +10,26 @@ export async function GET(
   try {
     const { id } = await Promise.resolve(params)
     
-    const event = events.find(e => e.id === id)
+    const event = await prisma.event.findUnique({
+      where: { id },
+      include: {
+        user: {
+          select: {
+            name: true,
+            email: true
+          }
+        },
+        dateOptions: {
+          select: {
+            id: true,
+            date: true
+          },
+          orderBy: {
+            date: 'asc'
+          }
+        }
+      }
+    })
     
     if (!event) {
       return NextResponse.json(
@@ -43,17 +38,7 @@ export async function GET(
       )
     }
 
-    const user = users.find(u => u.id === event.userId) || users[0]
-    
-    const eventWithUser = {
-      ...event,
-      user: {
-        name: user.name,
-        email: user.email
-      }
-    }
-
-    return NextResponse.json(eventWithUser)
+    return NextResponse.json(event)
   } catch (error) {
     console.error('Error fetching event:', error)
     return NextResponse.json(

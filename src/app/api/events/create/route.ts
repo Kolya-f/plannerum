@@ -10,20 +10,22 @@ export async function POST(request: Request) {
     
     if (!session?.user?.email) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { error: 'Не авторизовано' },
         { status: 401 }
       )
     }
 
     const body = await request.json()
-    const { title, description, date, location, category, maxParticipants } = body
+    const { title, description, location, category, maxParticipants, dateOptions } = body
 
     if (!title) {
       return NextResponse.json(
-        { error: 'Title is required' },
+        { error: 'Назва обов\'язкова' },
         { status: 400 }
       )
     }
+
+    console.log('📝 Створення події:', { title, user: session.user.email, dateOptions })
 
     // Знаходимо або створюємо користувача
     const user = await prisma.user.upsert({
@@ -39,23 +41,63 @@ export async function POST(request: Request) {
     const event = await prisma.event.create({
       data: {
         title,
-        description,
-        date: date ? new Date(date) : null,
-        location,
+        description: description || null,
+        location: location || null,
         category: category || 'other',
         maxParticipants: maxParticipants ? parseInt(maxParticipants) : null,
         userId: user.id,
-      },
-      include: {
-        user: true
+        userName: user.name,
+        userEmail: user.email,
       }
     })
 
-    return NextResponse.json(event, { status: 201 })
-  } catch (error) {
-    console.error('Error creating event:', error)
+    console.log('✅ Подія створена:', event.id)
+
+    // Додаємо варіанти дат, якщо є
+    if (dateOptions && dateOptions.length > 0) {
+      const validDates = dateOptions.filter((date: string) => date.trim() !== '')
+      
+      if (validDates.length > 0) {
+        const dateOptionsData = validDates.map((dateStr: string) => ({
+          eventId: event.id,
+          date: new Date(dateStr)
+        }))
+
+        await prisma.dateOption.createMany({
+          data: dateOptionsData
+        })
+
+        console.log(`✅ Додано ${validDates.length} варіантів дат`)
+      }
+    }
+
+    // Отримуємо повну інформацію про подію
+    const fullEvent = await prisma.event.findUnique({
+      where: { id: event.id },
+      include: {
+        user: {
+          select: {
+            name: true,
+            email: true
+          }
+        },
+        dateOptions: {
+          select: {
+            id: true,
+            date: true
+          },
+          orderBy: {
+            date: 'asc'
+          }
+        }
+      }
+    })
+
+    return NextResponse.json(fullEvent, { status: 201 })
+  } catch (error: any) {
+    console.error('❌ Помилка створення події:', error.message)
     return NextResponse.json(
-      { error: 'Failed to create event' },
+      { error: 'Не вдалося створити подію' },
       { status: 500 }
     )
   }

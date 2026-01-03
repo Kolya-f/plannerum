@@ -1,32 +1,63 @@
 import { NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
+
+export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
-    // Простий мок для тесту
-    return NextResponse.json({ 
-      success: true, 
-      messages: [
-        { text: 'Welcome to Plannerum Chat!', user_name: 'System', created_at: new Date().toISOString() },
-        { text: 'Chat functionality coming soon', user_name: 'System', created_at: new Date().toISOString() }
-      ]
+    const messages = await prisma.chatMessage.findMany({
+      take: 50,
+      orderBy: {
+        createdAt: 'desc'
+      },
+      include: {
+        user: {
+          select: {
+            name: true,
+            email: true
+          }
+        }
+      }
     })
-  } catch (error: any) {
-    return NextResponse.json({ error: 'Failed to fetch messages' }, { status: 500 })
+    
+    return NextResponse.json({ messages: messages.reverse() })
+  } catch (error) {
+    console.error('Chat get error:', error)
+    return NextResponse.json({ messages: [] })
   }
 }
 
 export async function POST(request: Request) {
   try {
-    const { text } = await request.json()
+    const body = await request.json()
+    const { content, userId, userName, userEmail } = body
     
-    if (!text?.trim()) {
-      return NextResponse.json({ error: 'Message cannot be empty' }, { status: 400 })
+    if (!content || !userId) {
+      return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
     }
-
-    console.log('Message would be saved:', text.trim())
     
-    return NextResponse.json({ success: true, message: 'Message sent (mock)' })
-  } catch (error: any) {
-    return NextResponse.json({ error: 'Failed to send message' }, { status: 500 })
+    const message = await prisma.chatMessage.create({
+      data: {
+        content,
+        userId,
+        userName: userName || 'User',
+        userEmail: userEmail || 'user@example.com',
+      },
+      include: {
+        user: {
+          select: {
+            name: true,
+            email: true
+          }
+        }
+      }
+    })
+    
+    console.log('💬 Повідомлення збережено в базі:', content)
+    
+    return NextResponse.json({ message })
+  } catch (error) {
+    console.error('Chat post error:', error)
+    return NextResponse.json({ error: 'Failed to save message' }, { status: 500 })
   }
 }

@@ -11,14 +11,7 @@ interface Event {
   location: string | null
   category: string | null
   maxParticipants: number | null
-  user: {
-    name: string | null
-    email: string | null
-  }
-  dateOptions: {
-    id: string
-    date: string
-  }[]
+  isPublic: boolean
   createdAt: string
 }
 
@@ -39,11 +32,11 @@ export default function EventsPage() {
         const data = await response.json()
         setEvents(data)
       } else {
-        setError('Failed to load events')
+        setError('Не вдалося завантажити події')
       }
     } catch (error) {
       console.error('Error fetching events:', error)
-      setError('Failed to load events')
+      setError('Помилка завантаження подій')
     } finally {
       setLoading(false)
     }
@@ -54,7 +47,9 @@ export default function EventsPage() {
     return date.toLocaleDateString('uk-UA', {
       day: 'numeric',
       month: 'long',
-      year: 'numeric'
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
     })
   }
 
@@ -122,29 +117,17 @@ export default function EventsPage() {
                 </p>
               )}
               
-              {event.dateOptions.length > 0 && (
-                <div className="mb-4">
-                  <p className="text-sm font-medium text-gray-700 mb-1">Дати для голосування:</p>
-                  <div className="flex flex-wrap gap-1">
-                    {event.dateOptions.map((option) => (
-                      <span key={option.id} className="bg-gray-100 text-gray-800 text-xs px-2 py-1 rounded">
-                        {formatDate(option.date)}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-              
               {event.maxParticipants && (
                 <p className="text-sm text-gray-500 mb-3">
                   👥 Макс. учасників: {event.maxParticipants}
                 </p>
               )}
               
-              <div className="flex justify-between items-center mt-4 pt-4 border-t">
-                <div className="text-sm text-gray-500">
-                  Створив: {event.user?.name || event.user?.email || 'Невідомо'}
-                </div>
+              <div className="text-sm text-gray-500 mt-4 pt-4 border-t">
+                Створено: {formatDate(event.createdAt)}
+              </div>
+              
+              <div className="flex justify-end mt-4">
                 <Link
                   href={`/events/${event.id}`}
                   className="text-blue-600 hover:text-blue-800 font-medium"
