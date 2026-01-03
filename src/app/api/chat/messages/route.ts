@@ -1,12 +1,17 @@
-export const dynamic = "force-dynamic"
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
-import { getUserFromRequest } from '@/lib/auth/api-helpers'
 
-export async function GET() {
+export const dynamic = 'force-dynamic'
+
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url)
+    const eventId = searchParams.get('eventId')
+    const limit = parseInt(searchParams.get('limit') || '50')
+
     const messages = await prisma.chatMessage.findMany({
-      take: 50,
+      where: eventId ? { eventId } : {},
+      take: limit,
       orderBy: { createdAt: 'desc' },
       include: {
         user: true,
@@ -14,7 +19,7 @@ export async function GET() {
       }
     })
     
-    return NextResponse.json(messages)
+    return NextResponse.json(messages.reverse()) // Переворачиваем чтобы новые были внизу
   } catch (error) {
     console.error('Error fetching messages:', error)
     return NextResponse.json(
@@ -26,20 +31,12 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const user = await getUserFromRequest(request as any)
-    if (!user) {
-      return NextResponse.json(
-        { error: 'User not authenticated' },
-        { status: 401 }
-      )
-    }
-
     const body = await request.json()
-    const { content, eventId } = body
+    const { content, userId, userName, userEmail, eventId } = body
 
-    if (!content) {
+    if (!content || !userId) {
       return NextResponse.json(
-        { error: 'Content is required' },
+        { error: 'Content and userId are required' },
         { status: 400 }
       )
     }
@@ -47,9 +44,9 @@ export async function POST(request: Request) {
     const message = await prisma.chatMessage.create({
       data: {
         content,
-        userId: user.id,
-        userName: user.name,
-        userEmail: user.email,
+        userId,
+        userName: userName || 'Анонім',
+        userEmail: userEmail || 'anonymous@example.com',
         eventId
       },
       include: {
@@ -60,16 +57,16 @@ export async function POST(request: Request) {
 
     // Обновляем статус онлайн
     await prisma.onlineUser.upsert({
-      where: { userId: user.id },
+      where: { userId },
       update: { 
         lastSeen: new Date(),
-        userName: user.name,
-        userEmail: user.email
+        userName: userName || 'Анонім',
+        userEmail: userEmail || 'anonymous@example.com'
       },
       create: {
-        userId: user.id,
-        userName: user.name,
-        userEmail: user.email,
+        userId,
+        userName: userName || 'Анонім',
+        userEmail: userEmail || 'anonymous@example.com',
         lastSeen: new Date()
       }
     })

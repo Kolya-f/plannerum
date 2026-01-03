@@ -8,46 +8,48 @@ datasource db {
 }
 
 model User {
-  id            String        @id @default(cuid())
+  id            String    @id @default(cuid())
   name          String?
-  email         String        @unique
+  email         String    @unique
   emailVerified DateTime?
   image         String?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  events        Event[]
-  votes         Vote[]
-  messages      ChatMessage[]
-  onlineStatus  OnlineUser?
-  accounts      Account[]
-  sessions      Session[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Связи
+  events       Event[]
+  votes        Vote[]
+  messages     ChatMessage[]
+  onlineStatus OnlineUser?
+  accounts     Account[]
+  sessions     Session[]
 
   @@map("users")
 }
 
 model Event {
-  id              String        @id @default(cuid())
+  id              String   @id @default(cuid())
   title           String
   description     String?
   location        String?
-  category        String        @default("other")
+  category        String   @default("other")
   maxParticipants Int?
-  isPublic        Boolean       @default(true)
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  
+  isPublic        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
   // Связи
-  userId          String
-  userName        String?
-  userEmail       String?
-  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  dateOptions     DateOption[]
-  votes           Vote[]
-  chatMessages    ChatMessage[]
-  
-  @@map("events")
+  userId       String
+  userName     String?
+  userEmail    String?
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dateOptions  DateOption[]
+  votes        Vote[]
+  chatMessages ChatMessage[]
+
   @@index([createdAt])
   @@index([userId])
+  @@map("events")
 }
 
 model DateOption {
@@ -55,13 +57,13 @@ model DateOption {
   eventId   String
   date      DateTime
   createdAt DateTime @default(now())
-  
+
   // Связи
-  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  votes     Vote[]
-  
-  @@map("date_options")
+  event Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  votes Vote[]
+
   @@index([eventId])
+  @@map("date_options")
 }
 
 model Vote {
@@ -71,18 +73,18 @@ model Vote {
   userId       String
   userName     String?
   userEmail    String?
-  voteType     String   // Изменили VoteType на String для простоты
+  voteType     String
   createdAt    DateTime @default(now())
-  
+
   // Связи
-  event        Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  dateOption   DateOption @relation(fields: [dateOptionId], references: [id], onDelete: Cascade)
-  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  @@map("votes")
+  event      Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  dateOption DateOption @relation(fields: [dateOptionId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@unique([userId, eventId])
   @@index([eventId])
   @@index([userId])
+  @@map("votes")
 }
 
 model ChatMessage {
@@ -93,14 +95,14 @@ model ChatMessage {
   userEmail String?
   eventId   String?
   createdAt DateTime @default(now())
-  
+
   // Связи
-  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  event     Event?   @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  
-  @@map("chat_messages")
+  user  User?  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event Event? @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
   @@index([createdAt])
   @@index([eventId])
+  @@map("chat_messages")
 }
 
 model OnlineUser {
@@ -110,20 +112,13 @@ model OnlineUser {
   userEmail String?
   lastSeen  DateTime @default(now())
   createdAt DateTime @default(now())
-  
-  // Связи
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  @@map("online_users")
-  @@index([lastSeen])
-}
 
-// Удалили enum VoteType и используем просто String
-// enum VoteType {
-//   yes
-//   no
-//   maybe
-// }
+  // Связи
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([lastSeen])
+  @@map("online_users")
+}
 
 // Модели для NextAuth (если понадобится в будущем)
 model Account {
