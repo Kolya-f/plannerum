@@ -1,26 +1,36 @@
 import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
+import { prisma } from '@/lib/db/prisma'
 
+// Отключаем статическую генерацию для этого маршрута
 export const dynamic = 'force-dynamic'
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const session = await getServerSession()
-    
-    // Mock stats
-    const stats = {
-      totalEvents: 5,
-      totalVotes: 12,
-      upcomingEvents: 3
-    }
-    
-    return NextResponse.json(stats)
+    const { searchParams } = new URL(request.url)
+    const userId = searchParams.get('userId') || 'demo-user'
+
+    const eventsCount = await prisma.event.count({
+      where: { userId }
+    })
+
+    const votesCount = await prisma.vote.count({
+      where: { userId }
+    })
+
+    const messagesCount = await prisma.chatMessage.count({
+      where: { userId }
+    })
+
+    return NextResponse.json({
+      events: eventsCount,
+      votes: votesCount,
+      messages: messagesCount
+    })
   } catch (error) {
-    return NextResponse.json({ 
-      error: 'Failed to get stats',
-      totalEvents: 0,
-      totalVotes: 0,
-      upcomingEvents: 0
-    }, { status: 500 })
+    console.error('Error fetching user stats:', error)
+    return NextResponse.json(
+      { error: 'Failed to fetch user stats' },
+      { status: 500 }
+    )
   }
 }

@@ -1,7 +1,12 @@
 'use client'
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-import { authService, User } from './auth'
+
+interface User {
+  id: string
+  name: string
+  email: string
+}
 
 interface AuthContextType {
   user: User | null
@@ -17,16 +22,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => {
-    // Загружаем пользователя при монтировании
-    const savedUser = authService.getUser()
-    setUser(savedUser)
+    // Load user from localStorage on mount
+    if (typeof window !== 'undefined') {
+      const savedUser = localStorage.getItem('plannerum-user')
+      if (savedUser) {
+        try {
+          setUser(JSON.parse(savedUser))
+        } catch (e) {
+          console.error('Failed to parse user from localStorage:', e)
+        }
+      }
+    }
   }, [])
 
   const login = async (email: string, name?: string) => {
     setIsLoading(true)
     try {
-      const user = authService.login(email, name)
-      setUser(user)
+      const newUser: User = {
+        id: `user-${Date.now()}`,
+        name: name || 'Демо Користувач',
+        email: email || 'demo@example.com'
+      }
+      setUser(newUser)
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('plannerum-user', JSON.stringify(newUser))
+      }
     } catch (error) {
       console.error('Login error:', error)
     } finally {
@@ -37,8 +57,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     setIsLoading(true)
     try {
-      authService.logout()
       setUser(null)
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('plannerum-user')
+      }
     } catch (error) {
       console.error('Logout error:', error)
     } finally {

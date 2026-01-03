@@ -13,7 +13,6 @@ export const getSupabase = () => {
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     
     // Динамічний імпорт тільки на клієнті
-    import('@supabase/supabase-js').then(({ createClient }) => {
       supabaseInstance = createClient(supabaseUrl, supabaseAnonKey)
     }).catch(console.error)
   }
