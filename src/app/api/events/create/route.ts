@@ -1,95 +1,54 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-import prisma from '@/lib/prisma'
+import { prisma } from '@/lib/prisma'
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const session = await getServerSession()
     
     if (!session?.user?.email) {
       return NextResponse.json(
-        { error: 'Необхідно увійти в систему' },
+        { error: 'Unauthorized' },
         { status: 401 }
       )
     }
 
     const body = await request.json()
-    const {
-      title,
-      description,
-      dateOptions,
-    } = body
+    const { title, description, date, location } = body
 
-    console.log('Creating event with session user:', session.user)
-
-    // Знайти або створити користувача
-    let user = await prisma.user.findUnique({
-      where: { email: session.user.email }
-    })
-
-    // Якщо користувача немає - створити
-    if (!user) {
-      user = await prisma.user.create({
-        data: {
-          email: session.user.email,
-          name: session.user.name || session.user.email.split('@')[0]
-        }
-      })
-      console.log('Created new user:', user.id)
+    if (!title) {
+      return NextResponse.json(
+        { error: 'Title is required' },
+        { status: 400 }
+      )
     }
 
-    console.log('Using user ID:', user.id)
+    // Знаходимо або створюємо користувача
+    const user = await prisma.user.upsert({
+      where: { email: session.user.email },
+      update: {},
+      create: {
+        email: session.user.email,
+        name: session.user.name || session.user.email.split('@')[0],
+      },
+    })
 
-    // Створити подію (без location)
+    // Створюємо подію
     const event = await prisma.event.create({
       data: {
         title,
-        description: description || null,
-        isPublic: true,
+        description,
+        date: date ? new Date(date) : null,
+        location,
         userId: user.id,
-        dateOptions: {
-          create: dateOptions.map((dateString: string) => ({
-            date: new Date(dateString)
-          }))
-        }
       },
-      include: {
-        dateOptions: true,
-        user: {
-          select: {
-            name: true,
-            email: true
-          }
-        }
-      }
     })
 
-    console.log('Event created successfully:', event.id)
-
-    return NextResponse.json({
-      success: true,
-      event: {
-        id: event.id,
-        title: event.title,
-        description: event.description,
-        userId: event.userId,
-        creatorName: event.user?.name || event.user?.email
-      }
-    })
-
-  } catch (error: any) {
-    console.error('Create event error:', error)
-    console.error('Full error details:', {
-      message: error.message,
-      code: error.code,
-      meta: error.meta
-    })
-    
+    return NextResponse.json(event, { status: 201 })
+  } catch (error) {
+    console.error('Error creating event:', error)
     return NextResponse.json(
-      { 
-        error: 'Помилка при створенні події',
-        details: error.message 
-      },
+      { error: 'Failed to create event' },
       { status: 500 }
     )
   }
