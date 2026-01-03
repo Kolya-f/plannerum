@@ -1,0 +1,44 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Event {
+  id              String      @id @default(cuid())
+  title           String
+  description     String?
+  location        String?
+  category        String?
+  maxParticipants Int?
+  isPublic        Boolean     @default(true)
+  creatorName     String
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  @@map("Event")
+}
+
+model DateOption {
+  id            String      @id @default(cuid())
+  eventId       String
+  date          DateTime?
+  createdAt     DateTime    @default(now())
+  
+  @@map("DateOption")
+}
+
+model Vote {
+  id            String      @id @default(cuid())
+  dateOptionId  String
+  userId        String
+  userName      String
+  voteType      String
+  createdAt     DateTime    @default(now())
+  
+  @@unique([dateOptionId, userId])
+  @@map("Vote")
+}

@@ -1,0 +1,22 @@
+version: '3.8'
+services:
+  postgres:
+    image: postgres:15
+    container_name: plannerum-postgres
+    environment:
+      POSTGRES_USER: plannerum
+      POSTGRES_PASSWORD: plannerum123
+      POSTGRES_DB: plannerum
+    ports:
+      - "5433:5432"  # Використовуємо 5433 щоб уникнути конфліктів
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U plannerum"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:

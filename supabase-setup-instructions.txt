@@ -1,0 +1,23 @@
+-- Create messages table
+CREATE TABLE IF NOT EXISTS messages (
+  id BIGSERIAL PRIMARY KEY,
+  text TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  user_name TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Create index for performance
+CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);
+
+-- Enable Realtime for this table
+ALTER PUBLICATION supabase_realtime ADD TABLE messages;
+
+-- Add test messages
+INSERT INTO messages (text, user_id, user_name) VALUES
+  ('👋 Welcome to Global Chat!', 'system', 'System'),
+  ('💬 Messages sync in real-time', 'system', 'System'),
+  ('🌍 Open in two browsers to test', 'system', 'System');
+
+-- Verify setup
+SELECT 'Table created' as status, COUNT(*) as message_count FROM messages;

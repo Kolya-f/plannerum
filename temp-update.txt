@@ -1,0 +1,26 @@
+У файлі src/app/create-event/page.tsx знайдіть блок:
+
+body: JSON.stringify({
+  title: eventData.title,
+  description: eventData.description,
+  creatorId: currentUser.id,
+  dateOptions: validDates.map(d => d.date),
+  location: eventData.location,
+  category: eventData.category,
+  maxParticipants: eventData.maxParticipants || null,
+  isPublic: eventData.isPublic
+})
+
+Замініть на:
+
+body: JSON.stringify({
+  title: eventData.title,
+  description: eventData.description,
+  creatorId: currentUser.id,
+  creatorName: eventData.creatorName || currentUser.name || 'Anonymous',
+  dateOptions: validDates.map(d => d.date),
+  location: eventData.location,
+  category: eventData.category,
+  maxParticipants: eventData.maxParticipants || null,
+  isPublic: eventData.isPublic
+})
