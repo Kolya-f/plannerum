@@ -1,14 +1,14 @@
 "use client";
+import { useAuth } from '@/lib/auth/context'
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
 export default function DashboardPage() {
-  const { data: session, status } = useSession();
+  const { data: session, status } = useAuth();
   const router = useRouter();
 
   // Не рендеримо нічого під час static generation
@@ -35,7 +35,7 @@ export default function DashboardPage() {
       <h1 className="text-3xl font-bold mb-6">Панель керування</h1>
       <div className="bg-white rounded-lg shadow p-6">
         <p className="text-lg mb-4">
-          Вітаємо, <span className="font-semibold">{session.user?.name || session.user?.email}</span>!
+          Вітаємо, <span className="font-semibold">{user?.name || user?.email}</span>!
         </p>
         <p>Тут будуть ваші події та статистика.</p>
       </div>

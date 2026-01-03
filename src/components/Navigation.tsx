@@ -1,11 +1,11 @@
 'use client'
+import { useAuth } from '@/lib/auth/context'
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { useSession, signOut } from 'next-auth/react'
 
 export default function Navigation() {
-  const { data: session, status } = useSession()
+  const { data: session, status } = useAuth()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
 
   return (
@@ -33,7 +33,7 @@ export default function Navigation() {
                   Dashboard
                 </Link>
                 <button
-                  onClick={() => signOut()}
+                  onClick={() => logout()}
                   className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
                 >
                   Sign Out
@@ -76,7 +76,7 @@ export default function Navigation() {
                   <Link href="/dashboard" className="block text-gray-700 hover:text-blue-600" onClick={() => setIsMenuOpen(false)}>Dashboard</Link>
                   <button
                     onClick={() => {
-                      signOut()
+                      logout()
                       setIsMenuOpen(false)
                     }}
                     className="block w-full text-left text-red-600 hover:text-red-800"

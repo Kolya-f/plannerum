@@ -1,6 +1,6 @@
 'use client'
+import { useAuth } from '@/lib/auth/context'
 
-import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
@@ -11,7 +11,7 @@ interface UserStats {
 }
 
 export default function ProfilePage() {
-  const { data: session, status } = useSession()
+  const { data: session, status } = useAuth()
   const router = useRouter()
   const [stats, setStats] = useState<UserStats | null>(null)
   const [loading, setLoading] = useState(true)
@@ -58,11 +58,11 @@ export default function ProfilePage() {
         <div className="bg-white shadow rounded-lg p-6 mb-6">
           <div className="flex items-center mb-6">
             <div className="w-16 h-16 bg-blue-500 rounded-full flex items-center justify-center text-white text-2xl font-bold">
-              {session.user?.name?.[0] || session.user?.email?.[0] || 'U'}
+              {user?.name?.[0] || user?.email?.[0] || 'U'}
             </div>
             <div className="ml-4">
-              <h2 className="text-xl font-semibold">{session.user?.name || 'User'}</h2>
-              <p className="text-gray-600">{session.user?.email}</p>
+              <h2 className="text-xl font-semibold">{user?.name || 'User'}</h2>
+              <p className="text-gray-600">{user?.email}</p>
             </div>
           </div>
 

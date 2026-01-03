@@ -1,109 +1,48 @@
 import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/lib/db/prisma'
+import { getUserFromRequest } from '@/lib/auth/api-helpers'
 
-export const dynamic = 'force-dynamic'
-
-// Отримати голоси для події
-export async function GET(request: Request) {
-  try {
-    const { searchParams } = new URL(request.url)
-    const eventId = searchParams.get('eventId')
-    
-    if (!eventId) {
-      return NextResponse.json(
-        { error: 'Event ID is required' },
-        { status: 400 }
-      )
-    }
-
-    // Отримуємо голоси для події
-    const votes = await prisma.vote.findMany({
-      where: { eventId },
-      include: {
-        user: {
-          select: {
-            name: true,
-            email: true
-          }
-        },
-        dateOption: {
-          select: {
-            id: true,
-            date: true
-          }
-        }
-      }
-    })
-
-    // Рахуємо статистику
-    const voteStats = {
-      total: votes.length,
-      byOption: votes.reduce((acc, vote) => {
-        acc[vote.voteType] = (acc[vote.voteType] || 0) + 1
-        return acc
-      }, {} as Record<string, number>),
-      byDateOption: votes.reduce((acc, vote) => {
-        if (vote.dateOptionId) {
-          acc[vote.dateOptionId] = (acc[vote.dateOptionId] || 0) + 1
-        }
-        return acc
-      }, {} as Record<string, number>)
-    }
-
-    return NextResponse.json({
-      votes,
-      stats: voteStats
-    })
-  } catch (error: any) {
-    console.error('Error fetching votes:', error.message)
-    return NextResponse.json(
-      { error: 'Failed to fetch votes' },
-      { status: 500 }
-    )
-  }
-}
-
-// Додати/оновити голос
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession()
-    
-    if (!session?.user?.email) {
+    const user = await getUserFromRequest(request as any)
+    if (!user) {
       return NextResponse.json(
-        { error: 'Не авторизовано' },
+        { error: 'User not authenticated' },
         { status: 401 }
       )
     }
 
     const body = await request.json()
-    const { eventId, dateOptionId, voteType } = body
+    const { 
+      eventId,
+      dateOptionId,
+      voteType
+    } = body
 
-    if (!eventId || !voteType || !dateOptionId) {
+    if (!eventId || !dateOptionId || !voteType) {
       return NextResponse.json(
-        { error: 'Всі поля обов\'язкові' },
+        { error: 'Missing required fields' },
         { status: 400 }
       )
     }
 
-    // Знаходимо або створюємо користувача
-    const user = await prisma.user.upsert({
-      where: { email: session.user.email },
-      update: {},
-      create: {
-        email: session.user.email,
-        name: session.user.name || session.user.email.split('@')[0],
-      },
-    })
+    // Проверяем, что voteType допустимый
+    const validVoteTypes = ['yes', 'no', 'maybe']
+    if (!validVoteTypes.includes(voteType)) {
+      return NextResponse.json(
+        { error: 'Invalid vote type. Must be: yes, no, or maybe' },
+        { status: 400 }
+      )
+    }
 
-    // Перевіряємо чи існує подія та варіант дати
+    // Проверяем, существует ли событие и вариант даты
     const event = await prisma.event.findUnique({
       where: { id: eventId }
     })
 
     if (!event) {
       return NextResponse.json(
-        { error: 'Подія не знайдена' },
+        { error: 'Event not found' },
         { status: 404 }
       )
     }
@@ -114,56 +53,45 @@ export async function POST(request: Request) {
 
     if (!dateOption) {
       return NextResponse.json(
-        { error: 'Варіант дати не знайдений' },
+        { error: 'Date option not found' },
         { status: 404 }
       )
     }
 
-    // Створюємо або оновлюємо голос
+    // Создаем или обновляем голос
     const vote = await prisma.vote.upsert({
       where: {
         userId_eventId: {
           userId: user.id,
-          eventId: eventId
+          eventId
         }
       },
       update: {
-        voteType,
         dateOptionId,
+        voteType,
         userName: user.name,
         userEmail: user.email
       },
       create: {
-        voteType,
+        eventId,
+        dateOptionId,
         userId: user.id,
         userName: user.name,
         userEmail: user.email,
-        eventId,
-        dateOptionId
+        voteType
       },
       include: {
-        user: {
-          select: {
-            name: true,
-            email: true
-          }
-        },
-        dateOption: {
-          select: {
-            id: true,
-            date: true
-          }
-        }
+        user: true,
+        dateOption: true,
+        event: true
       }
     })
 
-    console.log('🗳️ Голос додано/оновлено:', { eventId, voteType, user: user.email })
-
-    return NextResponse.json(vote)
-  } catch (error: any) {
-    console.error('Error voting:', error.message)
+    return NextResponse.json(vote, { status: 201 })
+  } catch (error) {
+    console.error('Error creating vote:', error)
     return NextResponse.json(
-      { error: 'Не вдалося проголосувати' },
+      { error: 'Failed to create vote' },
       { status: 500 }
     )
   }

@@ -1,36 +1,40 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-
-export const dynamic = 'force-dynamic'
+import { prisma } from '@/lib/db/prisma'
 
 export async function GET(
   request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = await Promise.resolve(params)
-    
     const event = await prisma.event.findUnique({
-      where: { id },
+      where: { id: params.id },
       include: {
-        user: {
-          select: {
-            name: true,
-            email: true
+        user: true,
+        dateOptions: {
+          include: {
+            votes: {
+              include: {
+                user: true
+              }
+            }
           }
         },
-        dateOptions: {
-          select: {
-            id: true,
-            date: true
+        votes: {
+          include: {
+            user: true
+          }
+        },
+        chatMessages: {
+          include: {
+            user: true
           },
           orderBy: {
-            date: 'asc'
+            createdAt: 'desc'
           }
         }
       }
     })
-    
+
     if (!event) {
       return NextResponse.json(
         { error: 'Event not found' },

@@ -2,81 +2,147 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { useSession, signIn, signOut } from 'next-auth/react'
+import { useAuth } from '@/lib/auth/context'
+import { Calendar, MessageCircle, User, Home, LogIn, LogOut } from 'lucide-react'
 
 export default function MainHeader() {
-  const { data: session } = useSession()
+  const { user, logout } = useAuth()
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+
+  const navItems = [
+    { href: '/', label: 'Головна', icon: <Home className="w-5 h-5" /> },
+    { href: '/events', label: 'Події', icon: <Calendar className="w-5 h-5" /> },
+    { href: '/chat', label: 'Чат', icon: <MessageCircle className="w-5 h-5" /> },
+    { href: '/create-event', label: 'Створити подію', icon: <Calendar className="w-5 h-5" /> },
+  ]
 
   return (
-    <header className="bg-white shadow-md">
-      <div className="container mx-auto px-4 py-4">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center space-x-8">
-            <Link href="/" className="text-2xl font-bold text-blue-600">
-              Plannerum
-            </Link>
-            
-            <nav className="hidden md:flex space-x-6">
-              <Link href="/" className="text-gray-700 hover:text-blue-600 transition-colors">
-                Home
+    <nav className="bg-white shadow-lg border-b border-gray-200">
+      <div className="container mx-auto px-4">
+        <div className="flex justify-between items-center h-16">
+          {/* Logo */}
+          <Link href="/" className="flex items-center space-x-2">
+            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+              <Calendar className="w-5 h-5 text-white" />
+            </div>
+            <span className="text-xl font-bold text-gray-900">Plannerum</span>
+          </Link>
+
+          {/* Desktop Navigation */}
+          <div className="hidden md:flex items-center space-x-1">
+            {navItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="flex items-center px-4 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100"
+              >
+                <span className="mr-2">{item.icon}</span>
+                {item.label}
               </Link>
-              <Link href="/events" className="text-gray-700 hover:text-blue-600 transition-colors">
-                Events
-              </Link>
-              {session && (
-                <>
-                  <Link href="/create-event" className="text-gray-700 hover:text-blue-600 transition-colors">
-                    Create Event
-                  </Link>
-                  <Link href="/profile" className="text-gray-700 hover:text-blue-600 transition-colors">
-                    Profile
-                  </Link>
-                </>
-              )}
-              <Link href="/chat" className="text-gray-700 hover:text-blue-600 transition-colors">
-                Community Chat
-              </Link>
-            </nav>
+            ))}
           </div>
-          
-          <div className="flex items-center space-x-4">
-            {session ? (
+
+          {/* Auth Section */}
+          <div className="hidden md:flex items-center space-x-4">
+            {user ? (
               <>
-                <span className="text-gray-600 text-sm hidden md:block">
-                  {session.user?.name || session.user?.email}
-                </span>
-                <Link
-                  href="/profile"
-                  className="text-blue-600 hover:text-blue-800 px-3 py-2 rounded-md text-sm font-medium"
+                <div className="flex items-center text-gray-700">
+                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-2">
+                    <span className="text-blue-600 font-medium text-sm">
+                      {user.name?.[0]?.toUpperCase() || user.email[0].toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="text-sm">
+                    <div className="font-medium">{user.name}</div>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => logout()}
+                  className="flex items-center text-red-600 hover:text-red-700"
                 >
-                  Profile
-                </Link>
-                <button
-                  onClick={() => signOut()}
-                  className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md text-sm transition-colors"
-                >
-                  Sign Out
+                  <LogOut className="w-5 h-5 mr-2" />
+                  <span>Вийти</span>
                 </button>
               </>
             ) : (
-              <>
-                <Link
-                  href="/auth/signin"
-                  className="text-blue-600 hover:text-blue-800 px-3 py-2 rounded-md text-sm font-medium"
-                >
-                  Sign In
-                </Link>
-                <Link
-                  href="/auth/signup"
-                  className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md text-sm transition-colors"
-                >
-                  Create Account
-                </Link>
-              </>
+              <Link
+                href="/auth"
+                className="flex items-center bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+              >
+                <LogIn className="w-5 h-5 mr-2" />
+                <span>Увійти</span>
+              </Link>
             )}
           </div>
+
+          {/* Mobile menu button */}
+          <button
+            className="md:hidden p-2 rounded-lg hover:bg-gray-100"
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+          >
+            <div className="space-y-1">
+              <div className="w-6 h-0.5 bg-gray-600"></div>
+              <div className="w-6 h-0.5 bg-gray-600"></div>
+              <div className="w-6 h-0.5 bg-gray-600"></div>
+            </div>
+          </button>
         </div>
+
+        {/* Mobile Navigation */}
+        {isMenuOpen && (
+          <div className="md:hidden border-t border-gray-200 py-4">
+            <div className="space-y-2">
+              {navItems.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="flex items-center px-4 py-3 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  <span className="mr-3">{item.icon}</span>
+                  {item.label}
+                </Link>
+              ))}
+              
+              <div className="pt-4 border-t border-gray-200">
+                {user ? (
+                  <>
+                    <div className="flex items-center px-4 py-3 mb-2">
+                      <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center mr-3">
+                        <span className="text-blue-600 font-medium">
+                          {user.name?.[0]?.toUpperCase() || user.email[0].toUpperCase()}
+                        </span>
+                      </div>
+                      <div>
+                        <div className="font-medium">{user.name}</div>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => {
+                        logout()
+                        setIsMenuOpen(false)
+                      }}
+                      className="flex items-center w-full px-4 py-3 text-red-600 hover:bg-gray-100 rounded-lg"
+                    >
+                      <LogOut className="w-5 h-5 mr-3" />
+                      <span>Вийти</span>
+                    </button>
+                  </>
+                ) : (
+                  <Link
+                    href="/auth"
+                    className="flex items-center bg-blue-600 text-white px-4 py-3 rounded-lg justify-center"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    <LogIn className="w-5 h-5 mr-2" />
+                    <span>Увійти</span>
+                  </Link>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
-    </header>
+    </nav>
   )
 }
