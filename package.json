@@ -4,15 +4,17 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "postinstall": "prisma generate"
+    "lint": "next lint"
   },
   "dependencies": {
+    "@heroicons/react": "^2.2.0",
     "@prisma/client": "^5.22.0",
+    "@supabase/ssr": "^0.4.0",
     "@supabase/supabase-js": "^2.45.4",
     "date-fns": "^3.6.0",
+    "lucide-react": "^0.378.0",
     "next": "14.2.5",
     "next-auth": "^4.24.7",
     "prisma": "^5.22.0",
