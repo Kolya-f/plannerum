@@ -1,11 +1,8 @@
 'use client'
 
-import { useSession } from 'next-auth/react'
-import { useEffect, useState } from 'react'
+import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-import { format } from 'date-fns'
-import { uk } from 'date-fns/locale'
+import { useEffect, useState } from 'react'
 
 interface UserStats {
   totalEvents: number
@@ -20,123 +17,91 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (session?.user?.id) {
-      fetchUserStats()
+    if (status === 'unauthenticated') {
+      router.push('/auth/signin')
+    } else if (session) {
+      fetchStats()
     }
-  }, [session])
+  }, [session, status, router])
 
-  const fetchUserStats = async () => {
+  const fetchStats = async () => {
     try {
-      const response = await fetch(`/api/user/stats?userId=${session?.user?.id}`)
+      const response = await fetch('/api/user/stats')
       if (response.ok) {
         const data = await response.json()
         setStats(data)
       }
     } catch (error) {
-      console.error('Error fetching user stats:', error)
+      console.error('Failed to fetch stats:', error)
     } finally {
       setLoading(false)
     }
   }
 
-  if (status === 'loading') {
+  if (status === 'loading' || loading) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="text-center">Завантаження...</div>
+      <div className="container mx-auto p-4">
+        <p>Loading...</p>
       </div>
     )
   }
 
   if (!session) {
-    return (
-      <div className="container mx-auto px-4 py-8 text-center">
-        <h1 className="text-2xl font-bold mb-4">Увійдіть в систему</h1>
-        <p className="mb-4">Для перегляду профілю потрібно увійти в систему</p>
-        <Link
-          href="/auth/signin"
-          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-        >
-          Увійти
-        </Link>
-      </div>
-    )
+    return null
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
-      <div className="bg-white rounded-xl shadow-md p-8">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-800">{session.user.name}</h1>
-            <p className="text-gray-600 mt-2">{session.user.email}</p>
-            {session.user.createdAt && (
-              <p className="text-gray-500 text-sm mt-1">
-                З нами з {format(new Date(session.user.createdAt), 'dd MMMM yyyy', { locale: uk })}
-              </p>
-            )}
+    <div className="container mx-auto p-4">
+      <div className="max-w-2xl mx-auto">
+        <h1 className="text-3xl font-bold mb-6">Your Profile</h1>
+        
+        <div className="bg-white shadow rounded-lg p-6 mb-6">
+          <div className="flex items-center mb-6">
+            <div className="w-16 h-16 bg-blue-500 rounded-full flex items-center justify-center text-white text-2xl font-bold">
+              {session.user?.name?.[0] || session.user?.email?.[0] || 'U'}
+            </div>
+            <div className="ml-4">
+              <h2 className="text-xl font-semibold">{session.user?.name || 'User'}</h2>
+              <p className="text-gray-600">{session.user?.email}</p>
+            </div>
           </div>
-          
-          <div className="mt-4 md:mt-0">
-            <Link
-              href="/create-event"
-              className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+
+          {stats && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="bg-blue-50 p-4 rounded">
+                <h3 className="font-semibold text-blue-700">Events Created</h3>
+                <p className="text-2xl font-bold">{stats.totalEvents}</p>
+              </div>
+              <div className="bg-green-50 p-4 rounded">
+                <h3 className="font-semibold text-green-700">Votes Cast</h3>
+                <p className="text-2xl font-bold">{stats.totalVotes}</p>
+              </div>
+              <div className="bg-purple-50 p-4 rounded">
+                <h3 className="font-semibold text-purple-700">Upcoming Events</h3>
+                <p className="text-2xl font-bold">{stats.upcomingEvents}</p>
+              </div>
+            </div>
+          )}
+
+          <div className="border-t pt-6">
+            <h3 className="text-lg font-semibold mb-4">Account Actions</h3>
+            <button
+              onClick={() => signOut({ callbackUrl: '/' })}
+              className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded"
             >
-              Створити подію
-            </Link>
+              Sign Out
+            </button>
           </div>
         </div>
 
-        {loading ? (
-          <div className="text-center py-8">Завантаження статистики...</div>
-        ) : (
-          <>
-            {/* Статистика */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-              <div className="bg-blue-50 rounded-lg p-6">
-                <div className="text-3xl font-bold text-blue-600">
-                  {stats?.totalEvents || 0}
-                </div>
-                <div className="text-gray-600 mt-2">Створених подій</div>
-              </div>
-              
-              <div className="bg-green-50 rounded-lg p-6">
-                <div className="text-3xl font-bold text-green-600">
-                  {stats?.totalVotes || 0}
-                </div>
-                <div className="text-gray-600 mt-2">Відданих голосів</div>
-              </div>
-              
-              <div className="bg-purple-50 rounded-lg p-6">
-                <div className="text-3xl font-bold text-purple-600">
-                  {stats?.upcomingEvents || 0}
-                </div>
-                <div className="text-gray-600 mt-2">Майбутніх подій</div>
-              </div>
-            </div>
-
-            {/* Дії */}
-            <div className="border-t border-gray-200 pt-8">
-              <h2 className="text-xl font-semibold mb-4">Швидкі дії</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Link
-                  href="/events"
-                  className="bg-gray-50 hover:bg-gray-100 rounded-lg p-4 border border-gray-200 transition-colors"
-                >
-                  <div className="font-medium text-gray-800">Переглянути всі події</div>
-                  <div className="text-gray-600 text-sm mt-1">Знайти події для участі</div>
-                </Link>
-                
-                <Link
-                  href="/chat"
-                  className="bg-gray-50 hover:bg-gray-100 rounded-lg p-4 border border-gray-200 transition-colors"
-                >
-                  <div className="font-medium text-gray-800">Ком'юніті чат</div>
-                  <div className="text-gray-600 text-sm mt-1">Спілкування з ком'юніті</div>
-                </Link>
-              </div>
-            </div>
-          </>
-        )}
+        <div className="bg-gray-50 p-6 rounded-lg">
+          <h3 className="text-lg font-semibold mb-4">Your Recent Activity</h3>
+          <p className="text-gray-600">
+            {stats && stats.totalEvents > 0
+              ? `You have created ${stats.totalEvents} events and cast ${stats.totalVotes} votes.`
+              : 'No activity yet. Create your first event!'}
+          </p>
+        </div>
       </div>
     </div>
   )

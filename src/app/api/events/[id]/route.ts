@@ -1,24 +1,41 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
+import { NextResponse } from 'next/server'
 
-const prisma = new PrismaClient()
+// Mock events data
+const events = [
+  {
+    id: '1',
+    title: 'Welcome to Plannerum!',
+    description: 'This is a sample event to get started',
+    userId: '1',
+    date: new Date(Date.now() + 86400000).toISOString(),
+    location: 'Online',
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: '2',
+    title: 'Community Meeting',
+    description: 'Join our monthly community gathering',
+    userId: '2',
+    date: new Date(Date.now() + 172800000).toISOString(),
+    location: 'City Hall',
+    createdAt: new Date().toISOString(),
+  }
+]
+
+const users = [
+  { id: '1', email: 'test@example.com', name: 'Test User' },
+  { id: '2', email: 'admin@example.com', name: 'Admin User' }
+]
 
 export async function GET(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    const eventId = params.id
-
-    const event = await prisma.event.findUnique({
-      where: { id: eventId },
-      include: {
-        dateOptions: {
-          orderBy: { date: 'asc' }
-        }
-      }
-    })
-
+    const { id } = await Promise.resolve(params)
+    
+    const event = events.find(e => e.id === id)
+    
     if (!event) {
       return NextResponse.json(
         { error: 'Event not found' },
@@ -26,34 +43,22 @@ export async function GET(
       )
     }
 
-    // Форматування даних
-    const formattedEvent = {
-      id: event.id,
-      title: event.title,
-      description: event.description,
-      creatorName: event.creatorName,
-      location: event.location,
-      category: event.category,
-      maxParticipants: event.maxParticipants,
-      isPublic: event.isPublic,
-      createdAt: event.createdAt.toISOString(),
-      updatedAt: event.updatedAt.toISOString(),
-      dateOptions: event.dateOptions.map(option => ({
-        id: option.id,
-        date: option.date?.toISOString() || null,
-        createdAt: option.createdAt.toISOString()
-      }))
+    const user = users.find(u => u.id === event.userId) || users[0]
+    
+    const eventWithUser = {
+      ...event,
+      user: {
+        name: user.name,
+        email: user.email
+      }
     }
 
-    return NextResponse.json(formattedEvent)
-
-  } catch (error: any) {
-    console.error('Get event error:', error)
+    return NextResponse.json(eventWithUser)
+  } catch (error) {
+    console.error('Error fetching event:', error)
     return NextResponse.json(
-      { error: error.message || 'Failed to get event' },
+      { error: 'Failed to fetch event' },
       { status: 500 }
     )
-  } finally {
-    await prisma.$disconnect()
   }
 }

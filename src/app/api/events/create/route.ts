@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { prisma } from '@/lib/prisma'
+
+export const dynamic = 'force-dynamic'
+
+// In-memory storage
+const events: any[] = []
+const users: any[] = []
 
 export async function POST(request: Request) {
   try {
@@ -24,25 +29,28 @@ export async function POST(request: Request) {
     }
 
     // Знаходимо або створюємо користувача
-    const user = await prisma.user.upsert({
-      where: { email: session.user.email },
-      update: {},
-      create: {
+    let user = users.find(u => u.email === session.user.email)
+    if (!user) {
+      user = {
+        id: Date.now().toString(),
         email: session.user.email,
         name: session.user.name || session.user.email.split('@')[0],
-      },
-    })
+      }
+      users.push(user)
+    }
 
     // Створюємо подію
-    const event = await prisma.event.create({
-      data: {
-        title,
-        description,
-        date: date ? new Date(date) : null,
-        location,
-        userId: user.id,
-      },
-    })
+    const event = {
+      id: Date.now().toString(),
+      title,
+      description,
+      date: date || new Date(Date.now() + 86400000).toISOString(),
+      location,
+      userId: user.id,
+      createdAt: new Date().toISOString(),
+    }
+    
+    events.push(event)
 
     return NextResponse.json(event, { status: 201 })
   } catch (error) {

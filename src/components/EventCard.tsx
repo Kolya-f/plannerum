@@ -2,8 +2,6 @@
 
 import { Event } from '@prisma/client'
 import VoteButtons from './VoteButtons'
-import { format } from 'date-fns'
-import { uk } from 'date-fns/locale'
 
 interface EventCardProps {
   event: Event & {

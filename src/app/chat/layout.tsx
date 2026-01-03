@@ -1,33 +1,39 @@
+import { ReactNode } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Calendar } from 'lucide-react'
 
-export default function ChatLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function ChatLayout({ children }: { children: ReactNode }) {
   return (
-    <>
-      <nav className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <Link
-                href="/"
-                className="flex items-center text-gray-700 hover:text-blue-600"
-              >
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                <Calendar className="h-5 w-5 mr-2 text-blue-600" />
-                <span className="font-medium">Back to Plannerum</span>
+    <div className="min-h-screen bg-gray-50">
+      <header className="bg-white shadow">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex justify-between items-center">
+            <Link href="/" className="text-xl font-bold text-blue-600">
+              Plannerum Chat
+            </Link>
+            <nav className="flex space-x-4">
+              <Link href="/events" className="text-gray-600 hover:text-gray-900">
+                Events
               </Link>
-            </div>
-            <div className="text-sm text-gray-500">
-              💬 Real-Time Global Chat
-            </div>
+              <Link href="/dashboard" className="text-gray-600 hover:text-gray-900">
+                Dashboard
+              </Link>
+              <Link href="/profile" className="text-gray-600 hover:text-gray-900">
+                Profile
+              </Link>
+            </nav>
           </div>
         </div>
-      </nav>
-      {children}
-    </>
+      </header>
+      
+      <main className="container mx-auto px-4 py-8">
+        <div className="max-w-6xl mx-auto">
+          <h1 className="text-3xl font-bold mb-2">Community Chat</h1>
+          <p className="text-gray-600 mb-8">
+            Connect with other users, discuss events, and share ideas
+          </p>
+          {children}
+        </div>
+      </main>
+    </div>
   )
 }
