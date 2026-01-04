@@ -1,22 +1,25 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
+import { getServerSession } from 'next-auth'
+import { authOptions } from './options'
 
-// Функція для получения пользователя из заголовков запроса
+// Функція для отримання користувача з сесії NextAuth
 export async function getUserFromRequest(request: NextRequest) {
   try {
-    // Отримуємо ID користувача з заголовка
-    const userId = request.headers.get('x-user-id')
+    // Отримуємо сесію через getServerSession
+    const session = await getServerSession(authOptions)
     
-    console.log('🔍 Шукаємо користувача за ID:', userId)
-    
-    if (!userId) {
-      console.log('⚠️ x-user-id заголовок відсутній')
+    if (!session?.user?.email) {
+      console.log('❌ Користувач не автентифікований в сесії')
       return null
     }
 
+    const userEmail = session.user.email
+    console.log('🔍 Шукаємо користувача за email:', userEmail)
+
     // Шукаємо користувача в базі
     let user = await prisma.user.findUnique({
-      where: { id: userId }
+      where: { email: userEmail }
     })
 
     if (user) {
@@ -28,19 +31,13 @@ export async function getUserFromRequest(request: NextRequest) {
       }
     }
 
-    // Якщо користувача немає, створюємо нового з цим ID
-    console.log('👤 Користувача не знайдено, створюємо нового з ID:', userId)
+    // Якщо користувача немає, створюємо нового
+    console.log('👤 Користувача не знайдено, створюємо нового з email:', userEmail)
     
-    // Генеруємо унікальний email на основі ID
-    const userEmail = `${userId.replace(/[^a-zA-Z0-9]/g, '-')}@plannerum.com`
-    
-    user = await prisma.user.upsert({
-      where: { id: userId },
-      update: {},
-      create: {
-        id: userId,
-        name: 'Користувач ' + userId.slice(0, 6),
-        email: userEmail
+    user = await prisma.user.create({
+      data: {
+        email: userEmail,
+        name: session.user.name || userEmail.split('@')[0] || 'Користувач'
       }
     })
 

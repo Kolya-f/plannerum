@@ -6,84 +6,81 @@ import { ThumbsUp, ThumbsDown, Meh } from 'lucide-react'
 interface VoteButtonsProps {
   eventId: string
   dateOptionId: string
-  onVote: (voteType: string) => Promise<void>
-  currentVote?: string | null
+  initialVote?: string | null
+  onVoteSuccess?: () => void
   disabled?: boolean
+  onVote: (voteType: string) => void
 }
 
 export default function VoteButtons({ 
   eventId, 
   dateOptionId, 
-  onVote, 
-  currentVote,
-  disabled = false
+  initialVote,
+  onVoteSuccess,
+  disabled = false,
+  onVote
 }: VoteButtonsProps) {
+  const [currentVote, setCurrentVote] = useState<string | null>(initialVote || null)
   const [loading, setLoading] = useState(false)
 
   const handleVote = async (voteType: string) => {
-    if (disabled) {
-      alert('Будь ласка, увійдіть для голосування')
-      return
-    }
-
+    if (disabled || loading) return
+    
     setLoading(true)
     try {
       await onVote(voteType)
-    } catch (error) {
-      console.error('Error voting:', error)
+      setCurrentVote(voteType)
+      if (onVoteSuccess) {
+        onVoteSuccess()
+      }
     } finally {
       setLoading(false)
     }
   }
 
-  if (disabled) {
-    return (
-      <div className="text-sm text-gray-500">
-        Увійдіть для голосування
-      </div>
-    )
-  }
+  const voteTypes = [
+    { type: 'yes', label: 'Так', icon: ThumbsUp, color: 'bg-green-500 hover:bg-green-600 text-white' },
+    { type: 'no', label: 'Ні', icon: ThumbsDown, color: 'bg-red-500 hover:bg-red-600 text-white' },
+    { type: 'maybe', label: 'Можливо', icon: Meh, color: 'bg-yellow-500 hover:bg-yellow-600 text-white' }
+  ]
 
   return (
-    <div className="flex gap-2">
-      <button
-        onClick={() => handleVote('yes')}
-        disabled={loading}
-        className={`px-3 py-2 rounded-lg font-medium text-sm transition-colors ${
-          currentVote === 'yes'
-            ? 'bg-green-600 text-white'
-            : 'bg-green-100 text-green-700 hover:bg-green-200'
-        } disabled:opacity-50`}
-      >
-        <ThumbsUp className="w-4 h-4 inline mr-1" />
-        Так
-      </button>
+    <div className="space-y-2">
+      <div className="flex gap-2">
+        {voteTypes.map(({ type, label, icon: Icon, color }) => {
+          const isActive = currentVote === type
+          const baseColor = color.split(' ')[0]
+          
+          return (
+            <button
+              key={type}
+              onClick={() => handleVote(type)}
+              disabled={disabled || loading}
+              className={`
+                flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-medium
+                transition-all disabled:opacity-50 disabled:cursor-not-allowed
+                ${isActive 
+                  ? `${baseColor} ring-2 ring-offset-2 ring-${baseColor.split('-')[1]}-300` 
+                  : `${color}`
+                }
+                ${loading ? 'opacity-70 cursor-wait' : ''}
+              `}
+            >
+              <Icon className="w-5 h-5" />
+              <span>{label}</span>
+              {loading && currentVote === type && (
+                <div className="ml-2 w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              )}
+            </button>
+          )
+        })}
+      </div>
       
-      <button
-        onClick={() => handleVote('no')}
-        disabled={loading}
-        className={`px-3 py-2 rounded-lg font-medium text-sm transition-colors ${
-          currentVote === 'no'
-            ? 'bg-red-600 text-white'
-            : 'bg-red-100 text-red-700 hover:bg-red-200'
-        } disabled:opacity-50`}
-      >
-        <ThumbsDown className="w-4 h-4 inline mr-1" />
-        Ні
-      </button>
-      
-      <button
-        onClick={() => handleVote('maybe')}
-        disabled={loading}
-        className={`px-3 py-2 rounded-lg font-medium text-sm transition-colors ${
-          currentVote === 'maybe'
-            ? 'bg-yellow-600 text-white'
-            : 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
-        } disabled:opacity-50`}
-      >
-        <Meh className="w-4 h-4 inline mr-1" />
-        Можливо
-      </button>
+      {disabled && !currentVote && (
+        <div className="text-sm text-gray-500 italic">
+          Увійдіть для голосування
+        </div>
+      )}
     </div>
   )
 }

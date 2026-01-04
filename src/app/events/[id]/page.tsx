@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useParams } from 'next/navigation'
-import { Calendar, MapPin, Users, User, Clock, MessageCircle, ThumbsUp, ThumbsDown, Meh } from 'lucide-react'
+import { useParams, useRouter } from 'next/navigation'
+import { useSession } from 'next-auth/react'
+import { Calendar, MapPin, Users, User, Clock, MessageCircle, ThumbsUp, ThumbsDown, Meh, AlertCircle } from 'lucide-react'
 import { format } from 'date-fns'
 import { uk } from 'date-fns/locale'
 import VoteButtons from '@/components/VoteButtons'
@@ -15,8 +16,8 @@ interface EventType {
   category: string
   maxParticipants: number | null
   isPublic: boolean
-  createdAt: Date
-  updatedAt: Date
+  createdAt: string
+  updatedAt: string
   userId: string
   userName: string
   userEmail: string
@@ -26,7 +27,7 @@ interface EventType {
   }
   dateOptions: {
     id: string
-    date: Date
+    date: string
     votes: {
       voteType: string
       user: {
@@ -44,7 +45,7 @@ interface EventType {
   chatMessages: {
     id: string
     content: string
-    createdAt: Date
+    createdAt: string
     user: {
       name: string | null
     }
@@ -53,51 +54,58 @@ interface EventType {
 
 export default function EventDetailPage() {
   const params = useParams()
+  const router = useRouter()
+  const { data: session, status } = useSession()
   const [event, setEvent] = useState<EventType | null>(null)
   const [loading, setLoading] = useState(true)
+  const [voting, setVoting] = useState(false)
   const [activeTab, setActiveTab] = useState('details')
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
-  const [user, setUser] = useState<any>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const isLoggedIn = status === 'authenticated'
+  const user = session?.user
 
   useEffect(() => {
     fetchEvent()
-    checkAuth()
   }, [params.id])
-
-  const checkAuth = () => {
-    if (typeof window !== 'undefined') {
-      const savedUser = localStorage.getItem('plannerum-user')
-      setIsLoggedIn(!!savedUser)
-      setUser(savedUser ? JSON.parse(savedUser) : null)
-    }
-  }
 
   const fetchEvent = async () => {
     try {
+      setLoading(true)
       const response = await fetch(`/api/events/${params.id}`)
-      const data = await response.json()
-      setEvent(data)
+      if (response.ok) {
+        const data = await response.json()
+        setEvent(data)
+        setError(null)
+      } else {
+        setError('Не вдалося завантажити подію')
+      }
     } catch (error) {
       console.error('Error fetching event:', error)
+      setError('Мережева помилка')
     } finally {
       setLoading(false)
     }
   }
 
   const handleVote = async (dateOptionId: string, voteType: string) => {
-    if (!isLoggedIn) {
+    if (!isLoggedIn || !user) {
       alert('Будь ласка, увійдіть для голосування')
+      router.push('/auth/signin')
       return
     }
 
+    setVoting(true)
+    setError(null)
+
     try {
-      console.log('🗳️ Відправляю голос...')
-      
+      console.log('🗳️ Голосування для користувача:', user.email)
+
       const response = await fetch('/api/votes', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'x-user-id': user?.id || 'demo-user'
+          'x-user-id': user.id || user.email
         },
         body: JSON.stringify({
           eventId: params.id,
@@ -107,28 +115,20 @@ export default function EventDetailPage() {
       })
 
       const data = await response.json()
-      console.log('📥 Відповідь API:', data)
       
       if (response.ok) {
-        console.log('✅ Голос успішно зараховано!')
-        
-        // Оновлюємо дані події
+        console.log('✅ Голос успішно зараховано!', data)
         fetchEvent()
-        
-        // Можна показати сповіщення
-        alert('✅ Ваш голос зараховано!')
-        
-        // Додатково: примусово оновити сторінку через 1 секунду
-        setTimeout(() => {
-          window.location.reload()
-        }, 1000)
+        setError('✅ Ваш голос зараховано!')
+        setTimeout(() => setError(null), 3000)
       } else {
-        console.error('❌ Помилка голосування:', data)
-        alert(data.error || 'Не вдалося проголосувати')
+        setError(data.error || 'Не вдалося проголосувати')
       }
     } catch (error) {
       console.error('❌ Мережева помилка:', error)
-      alert('Мережева помилка. Перевірте консоль.')
+      setError('Мережева помилка')
+    } finally {
+      setVoting(false)
     }
   }
 
@@ -163,7 +163,6 @@ export default function EventDetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white">
         <div className="container mx-auto px-4 py-12">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
@@ -202,9 +201,7 @@ export default function EventDetailPage() {
         </div>
       </div>
 
-      {/* Content */}
       <div className="container mx-auto px-4 py-8">
-        {/* Tabs */}
         <div className="flex border-b border-gray-200 mb-8">
           <button
             onClick={() => setActiveTab('details')}
@@ -238,72 +235,28 @@ export default function EventDetailPage() {
           </button>
         </div>
 
+        {error && (
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+            <div className="flex items-center text-blue-700">
+              <AlertCircle className="w-5 h-5 mr-2" />
+              <span className="font-medium">Статус:</span>
+            </div>
+            <p className="mt-1 text-blue-600">{error}</p>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Content */}
           <div className="lg:col-span-2">
-            {activeTab === 'details' && (
-              <div className="bg-white rounded-xl shadow-sm p-6 space-y-6">
-                <div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-4">Опис події</h3>
-                  <p className="text-gray-700 whitespace-pre-line">{event.description || 'Опис відсутній'}</p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {event.location && (
-                    <div className="flex items-start">
-                      <MapPin className="w-5 h-5 text-gray-400 mt-1 mr-3" />
-                      <div>
-                        <div className="font-medium text-gray-900">Місце проведення</div>
-                        <div className="text-gray-600">{event.location}</div>
-                      </div>
-                    </div>
-                  )}
-                  
-                  <div className="flex items-start">
-                    <Users className="w-5 h-5 text-gray-400 mt-1 mr-3" />
-                    <div>
-                      <div className="font-medium text-gray-900">Учасники</div>
-                      <div className="text-gray-600">
-                        {event.maxParticipants 
-                          ? `До ${event.maxParticipants} осіб` 
-                          : 'Без обмежень'
-                        }
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-4">Статистика</h3>
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="text-center p-4 bg-blue-50 rounded-xl">
-                      <div className="text-2xl font-bold text-blue-600">
-                        {event.dateOptions.length}
-                      </div>
-                      <div className="text-sm text-gray-600">Варіантів дат</div>
-                    </div>
-                    <div className="text-center p-4 bg-green-50 rounded-xl">
-                      <div className="text-2xl font-bold text-green-600">
-                        {event.votes.length}
-                      </div>
-                      <div className="text-sm text-gray-600">Голосів</div>
-                    </div>
-                    <div className="text-center p-4 bg-purple-50 rounded-xl">
-                      <div className="text-2xl font-bold text-purple-600">
-                        {event.chatMessages.length}
-                      </div>
-                      <div className="text-sm text-gray-600">Повідомлень</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {activeTab === 'voting' && (
               <div className="space-y-6">
                 <div className="bg-white rounded-xl shadow-sm p-6">
                   <h3 className="text-xl font-bold text-gray-900 mb-6">
                     Голосування за дати
+                    {!isLoggedIn && (
+                      <span className="ml-4 text-sm font-normal text-yellow-600">
+                        (Увійдіть для голосування)
+                      </span>
+                    )}
                   </h3>
                   
                   <div className="space-y-4">
@@ -353,7 +306,7 @@ export default function EventDetailPage() {
                               eventId={event.id}
                               dateOptionId={dateOption.id}
                               onVote={(voteType) => handleVote(dateOption.id, voteType)}
-                              disabled={!isLoggedIn}
+                              disabled={!isLoggedIn || voting}
                             />
                           </div>
                         </div>
@@ -363,132 +316,6 @@ export default function EventDetailPage() {
                 </div>
               </div>
             )}
-
-            {activeTab === 'chat' && (
-              <div className="bg-white rounded-xl shadow-sm p-6">
-                <h3 className="text-xl font-bold text-gray-900 mb-6">Чат події</h3>
-                
-                {event.chatMessages.length > 0 ? (
-                  <div className="space-y-4">
-                    {event.chatMessages.map((message) => (
-                      <div key={message.id} className="border-b border-gray-100 pb-4 last:border-0">
-                        <div className="flex items-start gap-3">
-                          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                            <span className="text-blue-600 text-sm font-medium">
-                              {message.user.name?.[0]?.toUpperCase() || 'U'}
-                            </span>
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="font-medium text-gray-900">
-                                {message.user.name || 'Анонім'}
-                              </span>
-                              <span className="text-sm text-gray-500">
-                                {format(new Date(message.createdAt), 'HH:mm')}
-                              </span>
-                            </div>
-                            <p className="text-gray-700">{message.content}</p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    <MessageCircle className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                    <div>Повідомлень ще немає</div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Quick Actions */}
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">Швидкі дії</h3>
-              <div className="space-y-3">
-                <button className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700">
-                  Запросити друзів
-                </button>
-                <button className="w-full border-2 border-blue-600 text-blue-600 py-3 rounded-lg font-medium hover:bg-blue-50">
-                  Поділитися
-                </button>
-                <button className="w-full border border-gray-300 text-gray-700 py-3 rounded-lg font-medium hover:bg-gray-50">
-                  Експортувати в календар
-                </button>
-              </div>
-            </div>
-
-            {/* Participants */}
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">Учасники</h3>
-              <div className="space-y-3">
-                {event.votes.slice(0, 5).map((vote) => (
-                  <div key={vote.id} className="flex items-center">
-                    <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center mr-3">
-                      <User className="w-4 h-4 text-gray-500" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="font-medium text-sm">
-                        {vote.user.name || 'Анонім'}
-                      </div>
-                    </div>
-                    <span className={`text-xs px-2 py-1 rounded-full ${
-                      vote.voteType === 'yes' ? 'bg-green-100 text-green-800' :
-                      vote.voteType === 'no' ? 'bg-red-100 text-red-800' :
-                      'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      {vote.voteType === 'yes' ? 'Так' : 
-                       vote.voteType === 'no' ? 'Ні' : 'Можливо'}
-                    </span>
-                  </div>
-                ))}
-                {event.votes.length > 5 && (
-                  <div className="text-center text-sm text-gray-500 pt-2">
-                    та ще {event.votes.length - 5} учасників
-                  </div>
-                )}
-                {event.votes.length === 0 && (
-                  <div className="text-center text-gray-500 py-4">
-                    Поки що немає учасників
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Event Info */}
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">Інформація</h3>
-              <div className="space-y-3 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Створено:</span>
-                  <span className="font-medium">
-                    {format(new Date(event.createdAt), 'dd.MM.yyyy')}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Оновлено:</span>
-                  <span className="font-medium">
-                    {format(new Date(event.updatedAt), 'dd.MM.yyyy')}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Статус:</span>
-                  <span className={`font-medium ${
-                    new Date() > new Date(Math.max(...event.dateOptions.map(d => new Date(d.date).getTime())))
-                      ? 'text-red-600'
-                      : 'text-green-600'
-                  }`}>
-                    {new Date() > new Date(Math.max(...event.dateOptions.map(d => new Date(d.date).getTime())))
-                      ? 'Завершено'
-                      : 'Активна'
-                    }
-                  </span>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </div>
