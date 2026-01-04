@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { sql } from '@vercel/postgres'
+import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,21 +13,32 @@ export async function POST(request: Request) {
     }
 
     // Обновляем или добавляем запись онлайн пользователя
-    await sql`
-      INSERT INTO online_users ("userId", "userName", "userEmail", "lastSeen")
-      VALUES (${userId}, ${userName || ''}, ${userEmail || ''}, NOW())
-      ON CONFLICT ("userId") 
-      DO UPDATE SET 
-        "lastSeen" = NOW(),
-        "userName" = EXCLUDED."userName",
-        "userEmail" = EXCLUDED."userEmail"
-    `
+    await prisma.onlineUser.upsert({
+      where: {
+        userId: userId
+      },
+      update: {
+        lastSeen: new Date(),
+        userName: userName || '',
+        userEmail: userEmail || ''
+      },
+      create: {
+        userId: userId,
+        userName: userName || '',
+        userEmail: userEmail || '',
+        lastSeen: new Date()
+      }
+    })
 
     // Удаляем старые записи (более 10 минут)
-    await sql`
-      DELETE FROM online_users 
-      WHERE "lastSeen" < NOW() - INTERVAL '10 minutes'
-    `
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000)
+    await prisma.onlineUser.deleteMany({
+      where: {
+        lastSeen: {
+          lt: tenMinutesAgo
+        }
+      }
+    })
 
     return NextResponse.json({ success: true })
   } catch (error) {
