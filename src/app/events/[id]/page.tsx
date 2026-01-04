@@ -10,8 +10,8 @@ import VoteButtons from '@/components/VoteButtons'
 interface EventType {
   id: string
   title: string
-  description: string
-  location: string
+  description: string | null
+  location: string | null
   category: string
   maxParticipants: number | null
   isPublic: boolean
@@ -91,6 +91,8 @@ export default function EventDetailPage() {
     }
 
     try {
+      console.log('🗳️ Відправляю голос...')
+      
       const response = await fetch('/api/votes', {
         method: 'POST',
         headers: { 
@@ -104,13 +106,29 @@ export default function EventDetailPage() {
         })
       })
 
+      const data = await response.json()
+      console.log('📥 Відповідь API:', data)
+      
       if (response.ok) {
+        console.log('✅ Голос успішно зараховано!')
+        
+        // Оновлюємо дані події
         fetchEvent()
+        
+        // Можна показати сповіщення
+        alert('✅ Ваш голос зараховано!')
+        
+        // Додатково: примусово оновити сторінку через 1 секунду
+        setTimeout(() => {
+          window.location.reload()
+        }, 1000)
       } else {
-        console.error('Failed to vote')
+        console.error('❌ Помилка голосування:', data)
+        alert(data.error || 'Не вдалося проголосувати')
       }
     } catch (error) {
-      console.error('Error voting:', error)
+      console.error('❌ Мережева помилка:', error)
+      alert('Мережева помилка. Перевірте консоль.')
     }
   }
 
@@ -161,7 +179,7 @@ export default function EventDetailPage() {
                 )}
               </div>
               <h1 className="text-3xl md:text-4xl font-bold mb-4">{event.title}</h1>
-              <p className="text-blue-100 text-lg">{event.description}</p>
+              <p className="text-blue-100 text-lg">{event.description || 'Опис відсутній'}</p>
             </div>
             
             <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6">

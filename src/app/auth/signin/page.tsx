@@ -1,9 +1,10 @@
 'use client'
-import { useAuth } from '@/lib/auth/context'
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { signIn } from 'next-auth/react'
 import Link from 'next/link'
+import { LogIn, Mail, Lock, AlertCircle } from 'lucide-react'
 
 export default function SignInPage() {
   const [email, setEmail] = useState('')
@@ -20,94 +21,141 @@ export default function SignInPage() {
     try {
       const result = await signIn('credentials', {
         email,
-        password,
+        password: password || 'demo', // Демо пароль якщо не введено
         redirect: false,
       })
 
+      console.log('🔐 Результат входу:', result)
+
       if (result?.error) {
-        setError('Неправильний email або пароль')
+        setError('Неправильний email або пароль. Спробуйте ще раз.')
       } else {
+        console.log('✅ Успішний вхід, перенаправляємо...')
         router.push('/')
         router.refresh()
       }
     } catch (error) {
-      setError('Щось пішло не так')
+      console.error('❌ Помилка входу:', error)
+      setError('Щось пішло не так. Спробуйте ще раз.')
     } finally {
       setLoading(false)
     }
   }
 
+  const handleDemoLogin = async () => {
+    setEmail('demo@example.com')
+    setPassword('demo')
+    
+    const result = await signIn('credentials', {
+      email: 'demo@example.com',
+      password: 'demo',
+      redirect: false,
+    })
+
+    if (result?.error) {
+      setError('Помилка демо-входу')
+    } else {
+      router.push('/')
+      router.refresh()
+    }
+  }
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Увійти в Plannerum
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Або{' '}
-            <Link href="/" className="font-medium text-blue-600 hover:text-blue-500">
-              повернутися на головну
-            </Link>
-          </p>
-        </div>
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div className="rounded-md shadow-sm -space-y-px">
-            <div>
-              <label htmlFor="email" className="sr-only">
-                Email
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                placeholder="Email"
-              />
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-gray-200">
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl mb-4">
+              <LogIn className="w-8 h-8 text-white" />
             </div>
-            <div>
-              <label htmlFor="password" className="sr-only">
-                Пароль
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                placeholder="Пароль"
-              />
-            </div>
+            <h1 className="text-2xl font-bold text-gray-900">Увійти в Plannerum</h1>
+            <p className="text-gray-600 mt-2">
+              Введіть ваші дані для входу
+            </p>
           </div>
 
           {error && (
-            <div className="text-red-600 text-sm text-center">{error}</div>
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl">
+              <div className="flex items-center text-red-700">
+                <AlertCircle className="w-5 h-5 mr-2" />
+                <span className="font-medium">Помилка:</span>
+              </div>
+              <p className="mt-1 text-red-600 text-sm">{error}</p>
+            </div>
           )}
 
-          <div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? 'Вхід...' : 'Увійти'}
-            </button>
-          </div>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <Mail className="inline w-4 h-4 mr-1" />
+                Email адреса
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="your@email.com"
+                required
+              />
+            </div>
 
-          <div className="text-center text-sm text-gray-500">
-            <p>Для тесту використовуйте:</p>
-            <p className="mt-1">Email: test@example.com</p>
-            <p>Пароль: test123</p>
-            <p className="mt-2">Або будь-який інший email - автоматична реєстрація</p>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <Lock className="inline w-4 h-4 mr-1" />
+                Пароль (опційно)
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Можна залишити пустим для демо"
+              />
+              <p className="mt-2 text-sm text-gray-500">
+                Якщо ви новий користувач, система створить акаунт автоматично
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 rounded-xl font-medium hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl"
+              >
+                {loading ? (
+                  <span className="flex items-center justify-center">
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                    Вхід...
+                  </span>
+                ) : (
+                  'Увійти'
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleDemoLogin}
+                className="w-full bg-gradient-to-r from-purple-600 to-purple-700 text-white py-3 rounded-xl font-medium hover:from-purple-700 hover:to-purple-800 transition-all shadow-lg hover:shadow-xl"
+              >
+                Демо-вхід
+              </button>
+            </div>
+          </form>
+
+          <div className="mt-8 pt-6 border-t border-gray-200">
+            <div className="text-center text-sm text-gray-600">
+              <p>Для тестування використовуйте:</p>
+              <p className="mt-1 font-medium">Email: demo@example.com</p>
+              <p>Пароль: demo (або будь-який)</p>
+              <p className="mt-3">
+                <Link href="/" className="text-blue-600 hover:text-blue-800 font-medium">
+                  ← Повернутися на головну
+                </Link>
+              </p>
+            </div>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   )

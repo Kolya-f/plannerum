@@ -7,46 +7,57 @@ export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
     CredentialsProvider({
-      name: 'credentials',
+      id: 'credentials',
+      name: 'Credentials',
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
-        // Временная демо-авторизация
-        if (credentials?.email === 'demo@example.com') {
-          return {
-            id: 'demo-user',
-            email: 'demo@example.com',
-            name: 'Демо Користувач'
-          }
+        if (!credentials?.email) {
+          console.log('❌ No email provided')
+          return null
         }
-        
-        // Проверка в базе данных
-        if (credentials?.email) {
-          const user = await prisma.user.findUnique({
-            where: { email: credentials.email }
-          })
-          
-          if (user) {
-            return {
-              id: user.id,
-              email: user.email,
-              name: user.name
+
+        console.log('🔐 Authorizing:', credentials.email)
+
+        // Перевіряємо чи існує користувач
+        let user = await prisma.user.findUnique({
+          where: { email: credentials.email }
+        })
+
+        // Якщо немає - створюємо нового
+        if (!user) {
+          console.log('👤 Creating new user:', credentials.email)
+          user = await prisma.user.create({
+            data: {
+              email: credentials.email,
+              name: credentials.email.split('@')[0] || 'Користувач'
             }
-          }
+          })
+          console.log('✅ User created:', user.email)
         }
+
+        // У реальному додатку тут була б перевірка пароля
+        // Але для демо просто повертаємо користувача
         
-        return null
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name
+        }
       }
     })
   ],
   session: {
-    strategy: 'jwt'
+    strategy: 'jwt',
+    maxAge: 30 * 24 * 60 * 60, // 30 днів
   },
   pages: {
     signIn: '/auth/signin',
-    error: '/auth/error'
+    signOut: '/',
+    error: '/auth/error',
+    newUser: '/'
   },
   callbacks: {
     async jwt({ token, user }) {
@@ -63,5 +74,7 @@ export const authOptions: NextAuthOptions = {
       }
       return session
     }
-  }
+  },
+  debug: process.env.NODE_ENV === 'development',
+  secret: process.env.NEXTAUTH_SECRET || 'your-secret-key-change-in-production'
 }
