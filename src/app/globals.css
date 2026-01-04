@@ -3,61 +3,17 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 255, 255, 255;
-  --background-start: 65, 71, 99;
-  --background-end: 45, 50, 70;
+  --primary: #3b82f6;
+  --primary-dark: #2563eb;
+  --secondary: #f3f4f6;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-    to bottom,
-    rgb(var(--background-start)),
-    rgb(var(--background-end))
-  );
-  min-height: 100vh;
-}
-
-/* Овальні бабльки як в Instagram/Telegram */
-.message-bubble-other {
-  background: linear-gradient(135deg, #9fa8d4 0%, #8a96cc 100%);
-  border-radius: 24px;
-  border-bottom-left-radius: 6px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  position: relative;
-}
-
-.message-bubble-self {
-  background: linear-gradient(135deg, #7489e8 0%, #6377d6 100%);
-  border-radius: 24px;
-  border-bottom-right-radius: 6px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  position: relative;
-}
-
-/* Хвостики для бабльок */
-.message-bubble-other::before {
-  content: '';
-  position: absolute;
-  left: -6px;
-  top: 0;
-  width: 12px;
-  height: 12px;
-  background: linear-gradient(135deg, #9fa8d4 0%, #8a96cc 100%);
-  transform: rotate(45deg);
-  clip-path: polygon(0 0, 100% 100%, 0 100%);
-}
-
-.message-bubble-self::after {
-  content: '';
-  position: absolute;
-  right: -6px;
-  top: 0;
-  width: 12px;
-  height: 12px;
-  background: linear-gradient(135deg, #7489e8 0%, #6377d6 100%);
-  transform: rotate(45deg);
-  clip-path: polygon(100% 0, 0 100%, 100% 100%);
+  @apply bg-gray-50 text-gray-900 antialiased;
 }
 
 /* Custom scrollbar */
@@ -66,55 +22,23 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 4px;
+  @apply bg-gray-100;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 4px;
+  @apply bg-blue-400 rounded-full;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.25);
+  @apply bg-blue-500;
+}
+
+/* Selection color */
+::selection {
+  @apply bg-blue-500 text-white;
 }
 
 /* Smooth transitions */
 * {
-  transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease;
-}
-
-/* Анімації */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.animate-fade-in {
-  animation: fadeIn 0.3s ease-out;
-}
-
-/* Градієнтні рамки */
-.gradient-border {
-  position: relative;
-  background: linear-gradient(135deg, #414763, #2d3246);
-  border-radius: 12px;
-  padding: 1px;
-}
-
-.gradient-border::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  border-radius: 12px;
-  padding: 2px;
-  background: linear-gradient(135deg, #7489e8, #9fa8d4);
-  -webkit-mask: 
-    linear-gradient(#fff 0 0) content-box, 
-    linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
+  @apply transition-colors duration-200;
 }

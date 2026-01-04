@@ -1,12 +1,22 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
+import { Send, Users, MessageSquare, Clock, User, Paperclip, Smile, MoreVertical, Zap, TrendingUp, Calendar, Star, RefreshCw } from 'lucide-react'
 
 export default function ChatPage() {
   const [messages, setMessages] = useState<any[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(true)
+  const [onlineUsers, setOnlineUsers] = useState(0)
+  const [activeTab, setActiveTab] = useState('chat')
+  const [userTyping, setUserTyping] = useState(false)
+  const [stats, setStats] = useState({
+    totalMessages: 0,
+    totalUsers: 0,
+    activeToday: 0
+  })
+  const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     // Автоматический логин
@@ -15,18 +25,52 @@ export default function ChatPage() {
       const demoUser = {
         id: 'main-chat-user',
         name: 'Учасник чату',
-        email: 'chat@example.com'
+        email: 'chat@example.com',
+        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${Date.now()}`
       }
       localStorage.setItem('plannerum-user', JSON.stringify(demoUser))
     }
     
-    // Загрузка сообщений
+    // Загрузка сообщений и статистики
     loadMessages()
+    loadStats()
     
-    // Автообновление
-    const interval = setInterval(loadMessages, 3000)
-    return () => clearInterval(interval)
+    // Автообновление каждые 5 секунд
+    const interval = setInterval(() => {
+      loadMessages()
+      loadStats()
+    }, 5000)
+    
+    // Симуляция набора текста другими пользователями
+    const typingInterval = setInterval(() => {
+      if (Math.random() > 0.7 && messages.length > 0) {
+        setUserTyping(true)
+        setTimeout(() => setUserTyping(false), 2000)
+      }
+    }, 8000)
+    
+    return () => {
+      clearInterval(interval)
+      clearInterval(typingInterval)
+    }
   }, [])
+
+  const loadStats = async () => {
+    try {
+      const res = await fetch('/api/chat/stats')
+      if (res.ok) {
+        const data = await res.json()
+        setStats({
+          totalMessages: data.totalMessages || 0,
+          totalUsers: data.totalUsers || 0,
+          activeToday: data.activeToday || 0
+        })
+        setOnlineUsers(data.onlineUsers || 0)
+      }
+    } catch (error) {
+      console.error('Error loading stats:', error)
+    }
+  }
 
   const loadMessages = async () => {
     try {
@@ -36,7 +80,7 @@ export default function ChatPage() {
         setMessages(data)
       }
     } catch (error) {
-      console.error('Error:', error)
+      console.error('Error loading messages:', error)
     } finally {
       setLoading(false)
     }
@@ -55,13 +99,16 @@ export default function ChatPage() {
           content: input,
           userId: user.id,
           userName: user.name,
-          userEmail: user.email
+          userEmail: user.email,
+          userAvatar: user.avatar
         })
       })
       
       if (response.ok) {
         setInput('')
+        // Обновляем сообщения и статистику после отправки
         loadMessages()
+        loadStats()
       }
     } catch (error) {
       console.error('Error:', error)
@@ -69,70 +116,239 @@ export default function ChatPage() {
     }
   }
 
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.ctrlKey && e.key === 'Enter') {
+      sendMessage()
+    }
+  }
+
+  const refreshData = () => {
+    setLoading(true)
+    loadMessages()
+    loadStats()
+  }
+
+  // Функция для обновления статуса онлайн (вызывается при взаимодействии)
+  const updateOnlineStatus = async () => {
+    try {
+      const user = JSON.parse(localStorage.getItem('plannerum-user') || '{}')
+      if (user.id) {
+        await fetch('/api/chat/online', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: user.id,
+            userName: user.name,
+            userEmail: user.email
+          })
+        })
+      }
+    } catch (error) {
+      console.error('Error updating online status:', error)
+    }
+  }
+
+  // Обновляем статус онлайн при загрузке и периодически
+  useEffect(() => {
+    updateOnlineStatus()
+    const onlineInterval = setInterval(updateOnlineStatus, 30000) // Каждые 30 секунд
+    return () => clearInterval(onlineInterval)
+  }, [])
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
       <div className="container mx-auto px-4 py-8">
-        <div className="mb-8 text-center">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">💬 Глобальний чат Plannerum</h1>
-          <p className="text-gray-600">Спілкуйтесь з іншими користувачами</p>
+        {/* Заголовок с анимацией */}
+        <div className="text-center mb-12">
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl mb-6 shadow-lg">
+            <MessageSquare className="w-10 h-10 text-white" />
+          </div>
+          <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-3">
+            Plannerum Community Chat
+          </h1>
+          <p className="text-gray-600 text-lg max-w-2xl mx-auto">
+            Спілкуйтесь, плануйте та надихайте один одного у реальному часі
+          </p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Левая колонка - информация */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-xl shadow p-6 mb-6">
-              <h2 className="text-xl font-bold mb-4">📊 Статистика</h2>
-              <div className="space-y-3">
-                <div className="flex justify-between">
-                  <span>Повідомлень:</span>
-                  <span className="font-bold">{messages.length}</span>
+          {/* Левая панель - статистика и активность */}
+          <div className="lg:col-span-1 space-y-6">
+            {/* Карточка статистики */}
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-6 border border-gray-200">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-gray-900 flex items-center">
+                  <TrendingUp className="w-5 h-5 mr-2 text-blue-500" />
+                  Статистика
+                </h2>
+                <button 
+                  onClick={refreshData}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Оновити дані"
+                >
+                  <RefreshCw className={`w-4 h-4 text-gray-500 ${loading ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-xl">
+                  <div className="flex items-center">
+                    <Users className="w-4 h-4 text-blue-500 mr-2" />
+                    <span className="text-gray-700">Всього користувачів</span>
+                  </div>
+                  <span className="font-bold text-2xl text-blue-600">{stats.totalUsers}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span>Користувач онлайн:</span>
-                  <span className="font-bold text-green-600">Ви</span>
+                
+                <div className="flex items-center justify-between p-3 bg-green-50 rounded-xl">
+                  <div className="flex items-center">
+                    <div className="w-3 h-3 bg-green-500 rounded-full mr-2 animate-pulse"></div>
+                    <span className="text-gray-700">Онлайн зараз</span>
+                  </div>
+                  <span className="font-bold text-2xl text-green-600">{onlineUsers}</span>
+                </div>
+                
+                <div className="flex items-center justify-between p-3 bg-purple-50 rounded-xl">
+                  <div className="flex items-center">
+                    <MessageSquare className="w-4 h-4 text-purple-500 mr-2" />
+                    <span className="text-gray-700">Всього повідомлень</span>
+                  </div>
+                  <span className="font-bold text-2xl text-purple-600">{stats.totalMessages}</span>
+                </div>
+                
+                <div className="flex items-center justify-between p-3 bg-orange-50 rounded-xl">
+                  <div className="flex items-center">
+                    <Clock className="w-4 h-4 text-orange-500 mr-2" />
+                    <span className="text-gray-700">Активних сьогодні</span>
+                  </div>
+                  <span className="font-bold text-2xl text-orange-600">{stats.activeToday}</span>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-xl shadow p-6">
-              <h2 className="text-xl font-bold mb-4">🔗 Швидкі посилання</h2>
-              <div className="space-y-2">
-                <Link href="/chat/simple" className="block text-blue-600 hover:text-blue-800">
-                  🧪 Проста версія чату
+            {/* Карточка быстрых действий */}
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-6 border border-gray-200">
+              <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
+                <Zap className="w-5 h-5 mr-2 text-orange-500" />
+                Швидкі дії
+              </h2>
+              
+              <div className="space-y-3">
+                <Link 
+                  href="/chat/simple" 
+                  className="flex items-center p-3 bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl hover:from-blue-100 hover:to-blue-200 transition-all group"
+                >
+                  <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center mr-3">
+                    <MessageSquare className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <div className="font-semibold text-gray-900">Простий чат</div>
+                    <div className="text-sm text-gray-600">Базова версія</div>
+                  </div>
                 </Link>
-                <Link href="/chat/working" className="block text-blue-600 hover:text-blue-800">
-                  ✅ Робочий чат
+                
+                <Link 
+                  href="/chat/working" 
+                  className="flex items-center p-3 bg-gradient-to-r from-green-50 to-green-100 rounded-xl hover:from-green-100 hover:to-green-200 transition-all group"
+                >
+                  <div className="w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center mr-3">
+                    <Calendar className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <div className="font-semibold text-gray-900">Робочий чат</div>
+                    <div className="text-sm text-gray-600">Для подій</div>
+                  </div>
                 </Link>
-                <Link href="/events" className="block text-blue-600 hover:text-blue-800">
-                  📅 Події
+                
+                <Link 
+                  href="/events" 
+                  className="flex items-center p-3 bg-gradient-to-r from-purple-50 to-purple-100 rounded-xl hover:from-purple-100 hover:to-purple-200 transition-all group"
+                >
+                  <div className="w-10 h-10 bg-purple-500 rounded-lg flex items-center justify-center mr-3">
+                    <Star className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <div className="font-semibold text-gray-900">Події</div>
+                    <div className="text-sm text-gray-600">Планування</div>
+                  </div>
                 </Link>
+              </div>
+            </div>
+
+            {/* Информация о текущем пользователе */}
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-6 border border-gray-200">
+              <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                <User className="w-5 h-5 mr-2 text-indigo-500" />
+                Ваш статус
+              </h2>
+              
+              <div className="flex items-center space-x-3 p-3 bg-gradient-to-r from-indigo-50 to-indigo-100 rounded-xl">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-r from-blue-400 to-purple-500 flex items-center justify-center text-white font-bold">
+                  В
+                </div>
+                <div>
+                  <div className="font-bold text-gray-900">Ви онлайн</div>
+                  <div className="text-sm text-gray-600 flex items-center">
+                    <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+                    Активний у чаті
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Правая колонка - чат */}
+          {/* Основная область - чат */}
           <div className="lg:col-span-3">
-            <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-              {/* Заголовок чата */}
-              <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-2xl font-bold">Чат кімната</h2>
-                    <p className="text-blue-100">Обговорення подій та планування</p>
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-2xl overflow-hidden border border-gray-200">
+              {/* Заголовок чата с табами */}
+              <div className="bg-gradient-to-r from-blue-600 via-blue-500 to-purple-600 text-white p-6">
+                <div className="flex flex-col md:flex-row md:items-center justify-between mb-4">
+                  <div className="mb-4 md:mb-0">
+                    <h2 className="text-2xl font-bold">Глобальний чат</h2>
+                    <p className="text-blue-100">Обговорення, планування, спілкування</p>
                   </div>
-                  <div className="bg-white/20 px-4 py-2 rounded-lg">
-                    <span className="font-medium">{messages.length} повідомлень</span>
+                  
+                  <div className="flex space-x-2">
+                    <button 
+                      onClick={() => setActiveTab('chat')}
+                      className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'chat' ? 'bg-white/20' : 'hover:bg-white/10'}`}
+                    >
+                      💬 Чат ({messages.length})
+                    </button>
+                    <button 
+                      onClick={() => setActiveTab('events')}
+                      className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'events' ? 'bg-white/20' : 'hover:bg-white/10'}`}
+                    >
+                      📅 Події
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <div className="flex items-center">
+                      <div className="w-3 h-3 bg-green-400 rounded-full mr-2"></div>
+                      <span className="text-sm">Онлайн: {onlineUsers} користувачів</span>
+                    </div>
+                    {userTyping && (
+                      <div className="text-sm text-blue-200 animate-pulse">
+                        ✍️ Хтось пише повідомлення...
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-sm">
+                    <span className="text-blue-100">Останнє оновлення: </span>
+                    <span>{new Date().toLocaleTimeString('uk-UA', {hour: '2-digit', minute:'2-digit'})}</span>
                   </div>
                 </div>
               </div>
 
-              {/* Список сообщений */}
-              <div className="h-[500px] overflow-y-auto p-6">
+              {/* Область сообщений */}
+              <div className="h-[550px] overflow-y-auto p-6 bg-gradient-to-b from-white to-blue-50/30">
                 {loading ? (
                   <div className="flex justify-center items-center h-full">
                     <div className="text-center">
                       <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                      <div className="text-gray-600">Завантаження повідомлень...</div>
+                      <div className="text-gray-600 font-medium">Завантаження повідомлень...</div>
                     </div>
                   </div>
                 ) : messages.length === 0 ? (
@@ -140,66 +356,153 @@ export default function ChatPage() {
                     <div className="text-6xl mb-4">💬</div>
                     <h3 className="text-2xl font-bold text-gray-900 mb-2">Чат порожній</h3>
                     <p className="text-gray-600 mb-6">Напишіть перше повідомлення!</p>
+                    <button
+                      onClick={() => setInput('Привіт всім! 🎉')}
+                      className="bg-blue-600 text-white px-6 py-3 rounded-xl font-medium hover:bg-blue-700 transition-colors"
+                    >
+                      Привітатися зі спільнотою
+                    </button>
                   </div>
                 ) : (
-                  <div className="space-y-6">
+                  <div className="space-y-4">
                     {messages.map((msg) => (
-                      <div key={msg.id} className="flex items-start">
-                        <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mr-4">
-                          <span className="text-blue-600 font-bold text-lg">
-                            {msg.userName?.[0]?.toUpperCase() || 'U'}
-                          </span>
+                      <div 
+                        key={msg.id} 
+                        className={`flex ${msg.userEmail === 'chat@example.com' ? 'flex-row-reverse' : 'items-start'}`}
+                      >
+                        <div className={`flex ${msg.userEmail === 'chat@example.com' ? 'flex-row-reverse ml-4' : 'mr-4'}`}>
+                          <div className="relative">
+                            <div 
+                              className="w-12 h-12 rounded-full bg-gradient-to-r from-blue-400 to-purple-500 flex items-center justify-center text-white font-bold shadow-lg"
+                              style={{
+                                backgroundImage: msg.userAvatar ? `url(${msg.userAvatar})` : undefined,
+                                backgroundSize: 'cover',
+                                backgroundPosition: 'center'
+                              }}
+                            >
+                              {!msg.userAvatar && (msg.userName?.[0]?.toUpperCase() || 'U')}
+                            </div>
+                            <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
+                          </div>
                         </div>
-                        <div className="flex-1">
-                          <div className="flex items-center mb-1">
+                        
+                        <div className={`flex-1 ${msg.userEmail === 'chat@example.com' ? 'text-right' : ''}`}>
+                          <div className={`flex ${msg.userEmail === 'chat@example.com' ? 'justify-end' : 'items-center'} mb-1`}>
                             <span className="font-bold text-gray-900 mr-2">
                               {msg.userName || 'Анонім'}
                             </span>
                             <span className="text-sm text-gray-500">
-                              {new Date(msg.createdAt).toLocaleTimeString('uk-UA')}
+                              {new Date(msg.createdAt).toLocaleTimeString('uk-UA', {
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
                             </span>
                           </div>
-                          <div className="bg-gray-50 rounded-xl p-4">
-                            <p className="text-gray-800">{msg.content}</p>
+                          <div className={`inline-block max-w-[80%] ${msg.userEmail === 'chat@example.com' 
+                            ? 'float-right' : ''
+                          }`}>
+                            <div className={`rounded-2xl px-4 py-3 ${msg.userEmail === 'chat@example.com' 
+                              ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-br-none' 
+                              : 'bg-white shadow border border-gray-100 rounded-bl-none'
+                            }`}>
+                              <p className="break-words">{msg.content}</p>
+                            </div>
+                            <div className={`text-xs text-gray-400 mt-1 ${msg.userEmail === 'chat@example.com' ? 'text-right' : ''}`}>
+                              {new Date(msg.createdAt).toLocaleDateString('uk-UA', {
+                                day: 'numeric',
+                                month: 'long',
+                                year: 'numeric'
+                              })}
+                            </div>
                           </div>
                         </div>
                       </div>
                     ))}
+                    <div ref={messagesEndRef} />
                   </div>
                 )}
               </div>
 
-              {/* ПОЛЕ ДЛЯ ВВОДА СООБЩЕНИЙ - ОБЯЗАТЕЛЬНО ВИДИМОЕ! */}
-              <div className="border-t border-gray-200 p-6 bg-gray-50">
+              {/* Поле ввода сообщения */}
+              <div className="border-t border-gray-200 p-6 bg-white">
                 <div className="mb-4">
-                  <label className="block text-gray-700 font-medium mb-2">
-                    ✍️ Ваше повідомлення:
-                  </label>
-                  <textarea
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    placeholder="Напишіть ваше повідомлення тут..."
-                    className="w-full border-2 border-blue-300 rounded-xl px-6 py-4 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 resize-none"
-                    rows={3}
-                  />
+                  <div className="flex items-center mb-2">
+                    <User className="w-5 h-5 text-gray-400 mr-2" />
+                    <label className="text-gray-700 font-medium">
+                      Ваше повідомлення до спільноти:
+                    </label>
+                  </div>
+                  
+                  <div className="relative">
+                    <textarea
+                      value={input}
+                      onChange={(e) => {
+                        setInput(e.target.value)
+                        updateOnlineStatus()
+                      }}
+                      onKeyDown={handleKeyPress}
+                      placeholder="Напишіть ваше повідомлення тут... Використовуйте Ctrl+Enter для відправки"
+                      className="w-full border-2 border-gray-300 rounded-2xl px-6 py-4 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-100 resize-none pr-24"
+                      rows={3}
+                      maxLength={1000}
+                    />
+                    
+                    <div className="absolute right-3 bottom-3 flex items-center space-x-2">
+                      <button className="p-2 text-gray-400 hover:text-blue-500 transition-colors">
+                        <Paperclip className="w-5 h-5" />
+                      </button>
+                      <button className="p-2 text-gray-400 hover:text-yellow-500 transition-colors">
+                        <Smile className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div className="flex justify-between items-center mt-3">
+                    <div className="text-sm text-gray-500">
+                      {input.length}/1000 символів
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      Ctrl+Enter — швидка відправка
+                    </div>
+                  </div>
                 </div>
                 
                 <div className="flex justify-between items-center">
-                  <div className="text-sm text-gray-500">
-                    {input.length}/1000 символів
+                  <div className="flex items-center text-sm text-gray-500">
+                    <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+                    Ви онлайн • {onlineUsers} користувачів активні
                   </div>
-                  <button
-                    onClick={sendMessage}
-                    disabled={!input.trim()}
-                    className="bg-blue-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    📤 Надіслати
-                  </button>
+                  
+                  <div className="flex items-center space-x-4">
+                    <button
+                      onClick={() => setInput('')}
+                      className="px-6 py-2 text-gray-600 hover:text-gray-900 font-medium transition-colors"
+                    >
+                      Очистити
+                    </button>
+                    <button
+                      onClick={sendMessage}
+                      disabled={!input.trim()}
+                      className="px-8 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold rounded-xl hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center"
+                    >
+                      <Send className="w-5 h-5 mr-2" />
+                      Надіслати
+                    </button>
+                  </div>
                 </div>
-                
-                <div className="mt-4 text-center text-sm text-gray-500">
-                  <p>Натисніть Ctrl+Enter для відправки</p>
-                </div>
+              </div>
+            </div>
+            
+            {/* Информация о системе */}
+            <div className="mt-6 p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl text-center">
+              <div className="text-sm text-gray-600">
+                💬 Загальний чат Plannerum • {onlineUsers} онлайн • {stats.totalMessages} повідомлень • 
+                <button 
+                  onClick={refreshData} 
+                  className="ml-2 text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  Оновити
+                </button>
               </div>
             </div>
           </div>
