@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Calendar, MapPin, Users, Tag, Lock, Globe, Plus, X, Zap } from 'lucide-react'
+import { Calendar, MapPin, Users, Tag, Lock, Globe, Plus, X, Zap, AlertCircle } from 'lucide-react'
 
 export default function CreateEventPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [dateOptions, setDateOptions] = useState<Date[]>([new Date(Date.now() + 24 * 60 * 60 * 1000)])
   
   const [formData, setFormData] = useState({
@@ -102,31 +103,52 @@ export default function CreateEventPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
+    setError(null)
+
+    // Логування даних для дебагу
+    console.log('📤 Відправляємо дані:')
+    console.log('Form data:', formData)
+    console.log('Date options:', dateOptions)
+    console.log('Date options as ISO:', dateOptions.map(d => d.toISOString()))
 
     try {
       const user = JSON.parse(localStorage.getItem('plannerum-user') || '{}')
       
+      console.log('👤 Користувач:', user)
+      
+      const payload = {
+        ...formData,
+        dateOptions: dateOptions.map(d => d.toISOString()),
+        maxParticipants: formData.maxParticipants ? parseInt(formData.maxParticipants) : null,
+        userId: user.id || 'demo-user-' + Date.now(),
+        userName: user.name || 'Демо Користувач',
+        userEmail: user.email || 'demo@example.com'
+      }
+      
+      console.log('📦 Payload:', payload)
+
       const response = await fetch('/api/events', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          dateOptions,
-          maxParticipants: formData.maxParticipants ? parseInt(formData.maxParticipants) : null,
-          userId: user.id || 'demo-user',
-          userName: user.name || 'Демо Користувач',
-          userEmail: user.email || 'demo@example.com'
-        })
+        body: JSON.stringify(payload)
       })
 
+      console.log('📥 Відповідь:', response.status, response.statusText)
+
+      const responseData = await response.json()
+      console.log('📊 Дані відповіді:', responseData)
+
       if (response.ok) {
-        const event = await response.json()
-        router.push(`/events/${event.id}`)
+        console.log('✅ Подія створена успішно:', responseData.id)
+        router.push(`/events/${responseData.id}`)
         router.refresh()
+      } else {
+        console.error('❌ Помилка від сервера:', responseData)
+        setError(responseData.error || responseData.details || 'Не вдалося створити подію')
       }
     } catch (error) {
-      console.error('Error creating event:', error)
-      alert('Не вдалося створити подію')
+      console.error('❌ Помилка мережі:', error)
+      setError('Мережева помилка. Перевірте консоль для деталей.')
     } finally {
       setLoading(false)
     }
@@ -218,6 +240,19 @@ export default function CreateEventPage() {
                   Заповніть форму нижче, щоб створити подію та запросити учасників
                 </p>
               </div>
+
+              {error && (
+                <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl">
+                  <div className="flex items-center text-red-700">
+                    <AlertCircle className="w-5 h-5 mr-2" />
+                    <span className="font-medium">Помилка:</span>
+                  </div>
+                  <p className="mt-1 text-red-600 text-sm">{error}</p>
+                  <p className="mt-2 text-red-500 text-xs">
+                    Перевірте консоль браузера (F12) для детальної інформації
+                  </p>
+                </div>
+              )}
 
               <form onSubmit={handleSubmit} className="space-y-8">
                 {/* Основная информация */}
