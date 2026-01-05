@@ -1,0 +1,7 @@
+node_modules/.prisma/client/index-browser.js
+node_modules/.prisma/client/libquery_engine-*
+node_modules/.prisma/client/query-engine-*
+__tests__
+*.test.js
+*.spec.js
+*.md

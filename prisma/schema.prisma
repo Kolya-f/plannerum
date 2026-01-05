@@ -1,0 +1,158 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Связи
+  events       Event[]
+  votes        Vote[]
+  messages     ChatMessage[]
+  onlineStatus OnlineUser?
+  accounts     Account[]
+  sessions     Session[]
+
+  @@map("users")
+}
+
+model Event {
+  id              String   @id @default(cuid())
+  title           String
+  description     String?
+  location        String?
+  category        String   @default("other")
+  maxParticipants Int?
+  isPublic        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Связи
+  userId       String
+  userName     String?
+  userEmail    String?
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dateOptions  DateOption[]
+  votes        Vote[]
+  chatMessages ChatMessage[]
+
+  @@index([createdAt])
+  @@index([userId])
+  @@map("events")
+}
+
+model DateOption {
+  id        String   @id @default(cuid())
+  eventId   String
+  date      DateTime
+  createdAt DateTime @default(now())
+
+  // Связи
+  event Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  votes Vote[]
+
+  @@index([eventId])
+  @@map("date_options")
+}
+
+model Vote {
+  id           String   @id @default(cuid())
+  eventId      String
+  dateOptionId String
+  userId       String
+  userName     String?
+  userEmail    String?
+  voteType     String
+  createdAt    DateTime @default(now())
+
+  // Связи
+  event      Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  dateOption DateOption @relation(fields: [dateOptionId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, eventId])
+  @@index([eventId])
+  @@index([userId])
+  @@map("votes")
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  content   String
+  userId    String
+  userName  String?
+  userEmail String?
+  eventId   String?
+  createdAt DateTime @default(now())
+
+  // Связи
+  user  User?  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event Event? @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@index([eventId])
+  @@map("chat_messages")
+}
+
+model OnlineUser {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  userName  String?
+  userEmail String?
+  lastSeen  DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  // Связи
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([lastSeen])
+  @@map("online_users")
+}
+
+// Модели для NextAuth (если понадобится в будущем)
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
